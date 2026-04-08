@@ -262,4 +262,7 @@ See [CHANGELOG.md](CHANGELOG.md) for recent changes.
 
 ---
 
+## 📸 App
+<img src="assets/app.png" alt="App">
+
 **Happy Coding! 🚀**
