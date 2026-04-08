@@ -1,8 +1,5 @@
-// vite.preload.config.mjs
-// Vite config for the Electron PRELOAD script.
-// Preload only uses 'electron' (contextBridge, ipcRenderer) — no bundling needed.
-
-import { defineConfig }  from 'vite';
+// vite.preload.config.mjs — Preload script Vite config
+import { defineConfig }   from 'vite';
 import { builtinModules } from 'module';
 
 export default defineConfig({

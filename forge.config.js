@@ -1,7 +1,4 @@
 // forge.config.js
-// Electron Forge configuration for Dev Project Launcher
-// Handles: Windows installer, native modules (better-sqlite3), asar packaging
-
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
@@ -9,7 +6,7 @@ module.exports = {
   packagerConfig: {
     name: 'Dev Project Launcher',
     executableName: 'DevProjectLauncher',
-    icon: './assets/icon.png',   // Forge adds .ico/.icns automatically
+    icon: './assets/icon',
     asar: true,
     prune: true,
     ignore: (file) => {
@@ -20,24 +17,19 @@ module.exports = {
   },
 
   rebuildConfig: {
-    // Rebuild native modules (better-sqlite3) for the target Electron version
-    // Run automatically by `electron-forge make`
     force: true,
   },
 
   makers: [
-    // ── Windows: Squirrel installer (.exe setup + auto-updater support) ──────
     {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'DevProjectLauncher',
         setupExe: 'DevProjectLauncherSetup.exe',
         setupIcon: './assets/icon.ico',
-        // Creates Start Menu shortcut
         shortcutFolderName: 'Dev Project Launcher',
       },
     },
-    // ── Mac (zip for distribution) ────────────────────────────────────────────
     {
       name: '@electron-forge/maker-zip',
       platforms: ['darwin'],
@@ -45,7 +37,6 @@ module.exports = {
   ],
 
   plugins: [
-    // ── Vite plugin: compiles main, preload, and renderer ─────────────────────
     {
       name: '@electron-forge/plugin-vite',
       config: {
@@ -56,7 +47,7 @@ module.exports = {
             target: 'main',
           },
           {
-            entry: 'src/preload.cjs',
+            entry: 'src/preload.js',
             config: 'vite.preload.config.mjs',
             target: 'preload',
           },
@@ -70,14 +61,11 @@ module.exports = {
       },
     },
 
-    // ── Auto-unpack-natives: ensures .node files are outside asar ─────────────
-    // Works alongside packagerConfig.asar.unpack above
     {
       name: '@electron-forge/plugin-auto-unpack-natives',
       config: {},
     },
 
-    // ── Fuses: security hardening at package time ─────────────────────────────
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,

@@ -9,9 +9,8 @@
   "private": true,
   "scripts": {
     "start": "electron-forge start",
-    "build": "electron-forge package",
+    "package": "electron-forge package",
     "make": "electron-forge make",
-    "make:win": "electron-forge make --platform win32 --arch x64",
     "lint": "echo \"No linting configured\""
   },
   "dependencies": {

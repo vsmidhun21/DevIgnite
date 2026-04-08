@@ -1,34 +1,29 @@
 // src/main.js — Electron main process (Electron Forge + Vite)
 //
-// HOW BUNDLING WORKS HERE
-// ─────────────────────────────────────────────────────────────────────────────
-// Vite compiles this file + core/ + shared/ into one .vite/build/main.js bundle.
-// Only 'better-sqlite3' stays external (native .node file, can't be bundled).
-// Result: zero path-resolution differences between dev and prod. ✓
-// ─────────────────────────────────────────────────────────────────────────────
+// This file uses ESM import syntax.
+// Vite compiles it to CJS format (.vite/build/main.js) via rollup output.format:'cjs'
+// Core modules are bundled inline — no runtime path resolution needed.
 
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import path from 'path';
+import path   from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url'
+import { fileURLToPath } from 'url';
 
-import { ProjectManager } from '../core/project-manager/ProjectManager.js'
-import { ExecutionEngine } from '../core/execution-engine/ExecutionEngine.js'
-import { ConfigManager } from '../core/config-manager/ConfigManager.js'
-import { ProcessManager } from '../core/process-manager/ProcessManager.js'
-import { getDb, closeDb } from '../core/db/database.js';
-import { IPC_CHANNELS } from '../shared/constants/index.js';
+// electron-squirrel-startup: handles Windows installer shortcuts
 import squirrelStartup from 'electron-squirrel-startup';
+if (squirrelStartup) app.quit();
 
-// import preload from './preload.js';  // Vite compiles this to .vite/build/preload.js, same folder as main.js, so we can use a relative path here without needing __dirname
+// Core — Vite bundles all of these into the output .vite/build/main.js
+import { ProjectManager }  from '../core/project-manager/ProjectManager.js';
+import { ExecutionEngine } from '../core/execution-engine/ExecutionEngine.js';
+import { ConfigManager }   from '../core/config-manager/ConfigManager.js';
+import { ProcessManager }  from '../core/process-manager/ProcessManager.js';
+import { getDb, closeDb }  from '../core/db/database.js';
+import { IPC_CHANNELS }    from '../shared/constants/index.js';
 
-if (squirrelStartup) {
-  app.quit()
-}
-
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+// __dirname shim for ESM (needed before Vite compiles, harmless after)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 // ─── Global state ─────────────────────────────────────────────────────────────
 let projectManager;
@@ -36,39 +31,34 @@ let executionEngine;
 let configManager;
 let dbPath;
 const processManager = new ProcessManager();
-const logEntries = new Map();
+const logEntries     = new Map();
 let mainWindow;
-const iconPath = path.join(__dirname, '../assets/icon.png')
 
 // ─── Initialize core modules ──────────────────────────────────────────────────
 function initializeApp() {
-  // userData = %APPDATA%\dev-prj-launcher  (Windows)
   dbPath = path.join(app.getPath('userData'), 'launcher.sqlite');
 
   executionEngine = new ExecutionEngine(
-    // onLog: stream log lines to renderer in real-time
     (projectId, level, message) => {
       mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, {
         projectId, level, message, ts: new Date().toISOString(),
       });
-      // Also persist to SQLite
       const entry = logEntries.get(projectId);
       if (entry) {
         try {
           getDb(dbPath)
             .prepare('INSERT INTO logs (project_id, level, message, session_id) VALUES (?,?,?,?)')
             .run(projectId, level, message, entry.sessionId);
-        } catch { }
+        } catch {}
       }
     },
-    // onStatus: push running/stopped/error status to renderer
     (projectId, status, pid) => {
       mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid });
     }
   );
 
   projectManager = new ProjectManager(dbPath);
-  configManager = new ConfigManager(dbPath);
+  configManager  = new ConfigManager(dbPath);
 }
 
 // ─── Create window ────────────────────────────────────────────────────────────
@@ -76,29 +66,27 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200, height: 780,
     minWidth: 900, minHeight: 600,
-    // __dirname here = .vite/build/ (dev) or app.asar/.vite/build/ (prod)
-    // assets/ is at project root — go up two levels from .vite/build/
-    icon: iconPath,
+    icon: path.join(__dirname, '../../assets/icon.png'),
     title: 'Dev Project Launcher',
     webPreferences: {
-      // Forge compiles preload.js to the same .vite/build/ folder as main.js
-      preload: path.join(__dirname, 'preload.cjs'),
+      // Forge compiles preload.js to the same .vite/build/ directory
+      preload:          path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,   // required: lets preload use require('electron')
+      nodeIntegration:  false,
+      sandbox:          false,
     },
   });
 
-  // MAIN_WINDOW_VITE_DEV_SERVER_URL — injected by Forge in dev (points to Vite dev server)
-  // MAIN_WINDOW_VITE_NAME           — injected by Forge ('main_window')
+  // MAIN_WINDOW_VITE_DEV_SERVER_URL:
+  //   npm start  → "http://localhost:5173"  (truthy) → loadURL + DevTools
+  //   npm make   → undefined               (falsy)  → loadFile, no DevTools
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools();   // DevTools only in dev
+    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
     );
-    // No DevTools in production
   }
 }
 
@@ -111,17 +99,17 @@ ipcMain.handle('dialog:openFolder', async () => {
   return result.canceled ? null : result.filePaths[0];
 });
 
-// ─── IPC: Projects CRUD ───────────────────────────────────────────────────────
+// ─── IPC: Projects ────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () =>
   projectManager.listAll().map(p => ({
     ...p,
-    status: processManager.getStatus(p.id),
-    pid: processManager.getInfo(p.id)?.pid ?? null,
+    status:   processManager.getStatus(p.id),
+    pid:      processManager.getInfo(p.id)?.pid      ?? null,
     uptimeMs: processManager.getInfo(p.id)?.uptimeMs ?? 0,
   }))
 );
-ipcMain.handle(IPC_CHANNELS.PROJECT_GET, (_, id) => projectManager.getById(id));
-ipcMain.handle(IPC_CHANNELS.PROJECT_ADD, (_, data) => projectManager.add(data));
+ipcMain.handle(IPC_CHANNELS.PROJECT_GET,    (_, id)           => projectManager.getById(id));
+ipcMain.handle(IPC_CHANNELS.PROJECT_ADD,    (_, data)         => projectManager.add(data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE, (_, { id, data }) => projectManager.update(id, data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
   if (processManager.isRunning(id)) processManager.stop(id);
@@ -130,7 +118,7 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
 
 // ─── IPC: Execution ───────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.PROJECT_RUN, async (_, projectId) => {
-  const project = projectManager.getById(projectId);
+  const project   = projectManager.getById(projectId);
   if (!project) throw new Error(`Project ${projectId} not found`);
   const envConfig = configManager.getMergedConfig(project, project.active_env);
   const sessionId = crypto.randomUUID();
@@ -146,7 +134,7 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_STOP, (_, projectId) => {
 });
 
 ipcMain.handle(IPC_CHANNELS.PROJECT_RESTART, async (_, projectId) => {
-  const project = projectManager.getById(projectId);
+  const project   = projectManager.getById(projectId);
   const envConfig = configManager.getMergedConfig(project, project.active_env);
   const sessionId = crypto.randomUUID();
   await processManager.restart(projectId, async () => {
@@ -173,9 +161,7 @@ ipcMain.handle(IPC_CHANNELS.CONFIG_SET, (_, { projectId, env, overrides }) => {
   return { ok: true };
 });
 ipcMain.handle(IPC_CHANNELS.LOG_CLEAR, (_, projectId) => {
-  getDb(dbPath)
-    .prepare('DELETE FROM logs WHERE project_id=?')
-    .run(projectId);
+  getDb(dbPath).prepare('DELETE FROM logs WHERE project_id=?').run(projectId);
   return { ok: true };
 });
 
