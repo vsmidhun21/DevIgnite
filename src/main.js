@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import path   from 'path';
+import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url'
 
@@ -36,7 +36,7 @@ let executionEngine;
 let configManager;
 let dbPath;
 const processManager = new ProcessManager();
-const logEntries     = new Map();
+const logEntries = new Map();
 let mainWindow;
 const iconPath = path.join(__dirname, '../assets/icon.png')
 
@@ -58,7 +58,7 @@ function initializeApp() {
           getDb(dbPath)
             .prepare('INSERT INTO logs (project_id, level, message, session_id) VALUES (?,?,?,?)')
             .run(projectId, level, message, entry.sessionId);
-        } catch {}
+        } catch { }
       }
     },
     // onStatus: push running/stopped/error status to renderer
@@ -68,7 +68,7 @@ function initializeApp() {
   );
 
   projectManager = new ProjectManager(dbPath);
-  configManager  = new ConfigManager(dbPath);
+  configManager = new ConfigManager(dbPath);
 }
 
 // ─── Create window ────────────────────────────────────────────────────────────
@@ -82,17 +82,17 @@ function createWindow() {
     title: 'Dev Project Launcher',
     webPreferences: {
       // Forge compiles preload.js to the same .vite/build/ folder as main.js
-      preload:          path.join(__dirname, 'preload.cjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
-      nodeIntegration:  false,
-      sandbox:          false,   // required: lets preload use require('electron')
+      nodeIntegration: false,
+      sandbox: false,   // required: lets preload use require('electron')
     },
   });
 
   // MAIN_WINDOW_VITE_DEV_SERVER_URL — injected by Forge in dev (points to Vite dev server)
   // MAIN_WINDOW_VITE_NAME           — injected by Forge ('main_window')
-  if ("http://localhost:5173") {
-    mainWindow.loadURL("http://localhost:5173");
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
     mainWindow.webContents.openDevTools();   // DevTools only in dev
   } else {
     mainWindow.loadFile(
@@ -115,13 +115,13 @@ ipcMain.handle('dialog:openFolder', async () => {
 ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () =>
   projectManager.listAll().map(p => ({
     ...p,
-    status:   processManager.getStatus(p.id),
-    pid:      processManager.getInfo(p.id)?.pid      ?? null,
+    status: processManager.getStatus(p.id),
+    pid: processManager.getInfo(p.id)?.pid ?? null,
     uptimeMs: processManager.getInfo(p.id)?.uptimeMs ?? 0,
   }))
 );
-ipcMain.handle(IPC_CHANNELS.PROJECT_GET,    (_, id)           => projectManager.getById(id));
-ipcMain.handle(IPC_CHANNELS.PROJECT_ADD,    (_, data)         => projectManager.add(data));
+ipcMain.handle(IPC_CHANNELS.PROJECT_GET, (_, id) => projectManager.getById(id));
+ipcMain.handle(IPC_CHANNELS.PROJECT_ADD, (_, data) => projectManager.add(data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE, (_, { id, data }) => projectManager.update(id, data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
   if (processManager.isRunning(id)) processManager.stop(id);
@@ -130,7 +130,7 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
 
 // ─── IPC: Execution ───────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.PROJECT_RUN, async (_, projectId) => {
-  const project   = projectManager.getById(projectId);
+  const project = projectManager.getById(projectId);
   if (!project) throw new Error(`Project ${projectId} not found`);
   const envConfig = configManager.getMergedConfig(project, project.active_env);
   const sessionId = crypto.randomUUID();
@@ -146,7 +146,7 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_STOP, (_, projectId) => {
 });
 
 ipcMain.handle(IPC_CHANNELS.PROJECT_RESTART, async (_, projectId) => {
-  const project   = projectManager.getById(projectId);
+  const project = projectManager.getById(projectId);
   const envConfig = configManager.getMergedConfig(project, project.active_env);
   const sessionId = crypto.randomUUID();
   await processManager.restart(projectId, async () => {

@@ -2,18 +2,21 @@
 // Electron Forge configuration for Dev Project Launcher
 // Handles: Windows installer, native modules (better-sqlite3), asar packaging
 
-const { FusesPlugin }    = require('@electron-forge/plugin-fuses');
+const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
 module.exports = {
   packagerConfig: {
-    name:           'Dev Project Launcher',
+    name: 'Dev Project Launcher',
     executableName: 'DevProjectLauncher',
-    icon:           './assets/icon.png',   // Forge adds .ico/.icns automatically
-    asar: {
-      // better-sqlite3 has native .node binaries — must live OUTSIDE the asar
-      unpack: '**/node_modules/better-sqlite3/**',
-    },
+    icon: './assets/icon.png',   // Forge adds .ico/.icns automatically
+    asar: true,
+    prune: true,
+    ignore: (file) => {
+      if (!file) return false;
+      const keep = file.startsWith('/.vite') || (file.startsWith('/node_modules'));
+      return !keep;
+    }
   },
 
   rebuildConfig: {
@@ -27,9 +30,9 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        name:            'DevProjectLauncher',
-        setupExe:        'DevProjectLauncherSetup.exe',
-        setupIcon:       './assets/icon.ico',
+        name: 'DevProjectLauncher',
+        setupExe: 'DevProjectLauncherSetup.exe',
+        setupIcon: './assets/icon.ico',
         // Creates Start Menu shortcut
         shortcutFolderName: 'Dev Project Launcher',
       },
@@ -48,19 +51,19 @@ module.exports = {
       config: {
         build: [
           {
-            entry:  'src/main.js',
+            entry: 'src/main.js',
             config: 'vite.main.config.mjs',
             target: 'main',
           },
           {
-            entry:  'src/preload.cjs',
+            entry: 'src/preload.cjs',
             config: 'vite.preload.config.mjs',
             target: 'preload',
           },
         ],
         renderer: [
           {
-            name:   'main_window',
+            name: 'main_window',
             config: 'vite.renderer.config.mjs',
           },
         ],
@@ -77,12 +80,12 @@ module.exports = {
     // ── Fuses: security hardening at package time ─────────────────────────────
     new FusesPlugin({
       version: FuseVersion.V1,
-      [FuseV1Options.RunAsNode]:                          false,
-      [FuseV1Options.EnableCookieEncryption]:             true,
+      [FuseV1Options.RunAsNode]: false,
+      [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      [FuseV1Options.EnableNodeCliInspectArguments]:       false,
+      [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]:                true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),
   ],
 };

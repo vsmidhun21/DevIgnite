@@ -3,8 +3,7 @@
   "productName": "Dev Project Launcher",
   "version": "1.0.0",
   "description": "Manage and launch all your dev projects from one place",
-  "main": "src/main.js",
-  "type": "module",
+  "main": ".vite/build/main.js",
   "author": "Midhun V S",
   "license": "MIT",
   "private": true,
@@ -16,7 +15,7 @@
     "lint": "echo \"No linting configured\""
   },
   "dependencies": {
-    "better-sqlite3": "^12.8.0",
+    "better-sqlite3": "^9.6.0",
     "electron-squirrel-startup": "^1.0.1",
     "uuid": "^9.0.0"
   },
@@ -32,7 +31,7 @@
     "@electron/fuses": "^1.8.0",
     "@electron/rebuild": "^3.6.0",
     "@vitejs/plugin-react": "^4.2.1",
-    "electron": "^41.2.0",
+    "electron": "^29.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "vite": "^5.4.21"
