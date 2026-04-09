@@ -1,31 +1,26 @@
-// src/preload.js — Secure IPC bridge (Forge Vite version)
-// Forge compiles this to .vite/build/preload.js alongside main.js.
-// Only require('electron') is safe here — no core/ or shared/ imports.
-
-// import { contextBridge, ipcRenderer } from 'electron';
-
+// src/preload.js — DevIgnite secure IPC bridge
 const { contextBridge, ipcRenderer } = require('electron');
 
-// IPC channel names — inlined to avoid any require() outside of 'electron'
 const CH = {
-  PROJECT_LIST:    'project:list',
-  PROJECT_GET:     'project:get',
-  PROJECT_ADD:     'project:add',
-  PROJECT_UPDATE:  'project:update',
-  PROJECT_DELETE:  'project:delete',
-  PROJECT_RUN:     'project:run',
-  PROJECT_STOP:    'project:stop',
-  PROJECT_RESTART: 'project:restart',
-  IDE_OPEN:        'ide:open',
-  CONFIG_GET:      'config:get',
-  CONFIG_SET:      'config:set',
-  LOG_STREAM:      'log:stream',
-  LOG_CLEAR:       'log:clear',
-  STATUS_UPDATE:   'status:update',
+  PROJECT_LIST: 'project:list', PROJECT_GET: 'project:get',
+  PROJECT_ADD: 'project:add', PROJECT_UPDATE: 'project:update',
+  PROJECT_DELETE: 'project:delete', IDE_OPEN: 'ide:open',
+  CONFIG_GET: 'config:get', CONFIG_SET: 'config:set',
+  LOG_CLEAR: 'log:clear', LOG_READ: 'log:read', LOG_META: 'log:meta',
+  START_WORK: 'work:start', STOP_WORK: 'work:stop',
+  LOG_STREAM: 'log:stream', STATUS_UPDATE: 'status:update', TICK_UPDATE: 'tick:update',
+  SESSION_HISTORY: 'session:history', SESSION_TODAY: 'session:today',
+  SESSION_ALL_TIME: 'session:alltime',
+  ENV_DETECT: 'env:detect', ENV_PARSE: 'env:parse',
 };
 
-contextBridge.exposeInMainWorld('launcher', {
-  // Native folder picker
+const on = (channel, cb) => {
+  const h = (_, data) => cb(data);
+  ipcRenderer.on(channel, h);
+  return () => ipcRenderer.removeListener(channel, h);
+};
+
+contextBridge.exposeInMainWorld('devignite', {
   pickFolder: () => ipcRenderer.invoke('dialog:openFolder'),
 
   projects: {
@@ -36,28 +31,37 @@ contextBridge.exposeInMainWorld('launcher', {
     delete: (id)         => ipcRenderer.invoke(CH.PROJECT_DELETE, id),
   },
 
-  run:     (id) => ipcRenderer.invoke(CH.PROJECT_RUN, id),
-  stop:    (id) => ipcRenderer.invoke(CH.PROJECT_STOP, id),
-  restart: (id) => ipcRenderer.invoke(CH.PROJECT_RESTART, id),
-  openIDE: (id) => ipcRenderer.invoke(CH.IDE_OPEN, id),
+  work: {
+    start: (projectId)   => ipcRenderer.invoke(CH.START_WORK, projectId),
+    stop:  (projectId)   => ipcRenderer.invoke(CH.STOP_WORK, projectId),
+  },
+
+  logs: {
+    read:  (projectId, which)  => ipcRenderer.invoke(CH.LOG_READ, { projectId, which }),
+    meta:  (projectId)         => ipcRenderer.invoke(CH.LOG_META, projectId),
+    clear: (projectId)         => ipcRenderer.invoke(CH.LOG_CLEAR, projectId),
+    onStream:     (cb) => on(CH.LOG_STREAM, cb),
+  },
+
+  time: {
+    history:  (projectId, limit) => ipcRenderer.invoke(CH.SESSION_HISTORY, { projectId, limit }),
+    today:    (projectId)        => ipcRenderer.invoke(CH.SESSION_TODAY, projectId),
+    allTime:  (projectId)        => ipcRenderer.invoke(CH.SESSION_ALL_TIME, projectId),
+  },
+
+  env: {
+    detect: (projectPath)           => ipcRenderer.invoke(CH.ENV_DETECT, { projectPath }),
+    parse:  (projectPath, filename) => ipcRenderer.invoke(CH.ENV_PARSE, { projectPath, filename }),
+  },
 
   config: {
     get: (projectId, env)            => ipcRenderer.invoke(CH.CONFIG_GET, { projectId, env }),
     set: (projectId, env, overrides) => ipcRenderer.invoke(CH.CONFIG_SET, { projectId, env, overrides }),
   },
 
-  logs: {
-    clear:    (id) => ipcRenderer.invoke(CH.LOG_CLEAR, id),
-    onStream: (cb) => {
-      const handler = (_, data) => cb(data);
-      ipcRenderer.on(CH.LOG_STREAM, handler);
-      return () => ipcRenderer.removeListener(CH.LOG_STREAM, handler);
-    },
-  },
-
-  onStatusUpdate: (cb) => {
-    const handler = (_, data) => cb(data);
-    ipcRenderer.on(CH.STATUS_UPDATE, handler);
-    return () => ipcRenderer.removeListener(CH.STATUS_UPDATE, handler);
+  on: {
+    status:     (cb) => on(CH.STATUS_UPDATE, cb),
+    tick:       (cb) => on(CH.TICK_UPDATE, cb),
+    logStream:  (cb) => on(CH.LOG_STREAM, cb),
   },
 });

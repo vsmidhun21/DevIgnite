@@ -1,40 +1,40 @@
-// desktop/renderer/src/components/AddProjectModal.jsx
-// Features: folder browse button, startup steps editor, auto-fill by type
 import { useState, useEffect } from 'react';
 import { DEFAULT_COMMANDS, DEFAULT_PORTS, DEFAULT_IDES, TYPE_OPTIONS, IDE_OPTIONS } from '../constants';
 
+const api = window.devignite;
+
 const STEP_TEMPLATES = {
-  'Django': [
-    { label: 'Install dependencies', cmd: 'pip install -r requirements.txt', wait: true },
-    { label: 'Run migrations', cmd: 'python manage.py migrate', wait: true },
-    { label: 'Start server', cmd: 'python manage.py runserver', wait: false },
+  'Django':      [
+    { label: 'Install deps',   cmd: 'pip install -r requirements.txt', wait: true  },
+    { label: 'Run migrations', cmd: 'python manage.py migrate',        wait: true  },
+    { label: 'Start server',   cmd: 'python manage.py runserver',      wait: false },
   ],
-  'FastAPI': [
-    { label: 'Install dependencies', cmd: 'pip install -r requirements.txt', wait: true },
-    { label: 'Start server', cmd: 'uvicorn main:app --reload', wait: false },
+  'FastAPI':     [
+    { label: 'Install deps',  cmd: 'pip install -r requirements.txt', wait: true  },
+    { label: 'Start server',  cmd: 'uvicorn main:app --reload',       wait: false },
   ],
-  'Flask': [
-    { label: 'Install dependencies', cmd: 'pip install -r requirements.txt', wait: true },
-    { label: 'Start server', cmd: 'flask run', wait: false },
+  'Flask':       [
+    { label: 'Install deps',  cmd: 'pip install -r requirements.txt', wait: true  },
+    { label: 'Start server',  cmd: 'flask run',                       wait: false },
   ],
-  'React': [
-    { label: 'Install packages', cmd: 'npm install', wait: true },
-    { label: 'Start dev server', cmd: 'npm start', wait: false },
+  'React':       [
+    { label: 'Install packages', cmd: 'npm install', wait: true  },
+    { label: 'Start dev server', cmd: 'npm start',   wait: false },
   ],
-  'Next.js': [
-    { label: 'Install packages', cmd: 'npm install', wait: true },
-    { label: 'Start dev server', cmd: 'npm run dev', wait: false },
+  'Next.js':     [
+    { label: 'Install packages', cmd: 'npm install',   wait: true  },
+    { label: 'Start dev server', cmd: 'npm run dev',   wait: false },
   ],
   'Spring Boot': [
     { label: 'Build & start', cmd: 'mvn spring-boot:run', wait: false },
   ],
-  'Laravel': [
-    { label: 'Install composer packages', cmd: 'composer install', wait: true },
-    { label: 'Start server', cmd: 'php artisan serve', wait: false },
+  'Laravel':     [
+    { label: 'Install composer', cmd: 'composer install',  wait: true  },
+    { label: 'Start server',     cmd: 'php artisan serve', wait: false },
   ],
-  'Node.js': [
-    { label: 'Install packages', cmd: 'npm install', wait: true },
-    { label: 'Start server', cmd: 'node index.js', wait: false },
+  'Node.js':     [
+    { label: 'Install packages', cmd: 'npm install',  wait: true  },
+    { label: 'Start server',     cmd: 'node index.js', wait: false },
   ],
 };
 
@@ -42,204 +42,207 @@ const emptyStep = () => ({ label: '', cmd: '', wait: false });
 
 export default function AddProjectModal({ project, onSave, onClose }) {
   const isEdit = Boolean(project);
-  const [tab, setTab] = useState('basic'); // 'basic' | 'steps'
+  const [tab, setTab] = useState('basic');
 
   const [form, setForm] = useState({
-    name: '', path: '', type: 'Django',
-    command: DEFAULT_COMMANDS['Django'],
-    ide: 'VS Code',
-    port: DEFAULT_PORTS['Django'],
+    name: '', path: '', type: 'Django', command: DEFAULT_COMMANDS['Django'],
+    ide: 'VS Code', port: DEFAULT_PORTS['Django'],
+    url: '', env_file: '', open_terminal: true, open_browser: true,
   });
-
-  const [steps, setSteps] = useState([]);
+  const [steps,    setSteps]    = useState([]);
   const [useSteps, setUseSteps] = useState(false);
+  const [envFiles, setEnvFiles] = useState([]);
 
   useEffect(() => {
     if (project) {
       setForm({
-        name: project.name || '',
-        path: project.path || '',
-        type: project.type || 'Django',
-        command: project.command || '',
-        ide: project.ide || 'VS Code',
-        port: project.port || '',
+        name: project.name || '', path: project.path || '',
+        type: project.type || 'Django', command: project.command || '',
+        ide: project.ide || 'VS Code', port: project.port || '',
+        url: project.url || '', env_file: project.env_file || '',
+        open_terminal: project.open_terminal !== 0,
+        open_browser:  project.open_browser  !== 0,
       });
-      const existingSteps = (() => {
-        try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; }
-      })();
-      if (existingSteps.length > 0) {
-        setSteps(existingSteps);
-        setUseSteps(true);
-      }
+      const s = (() => { try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; } })();
+      if (s.length > 0) { setSteps(s); setUseSteps(true); }
     }
   }, [project]);
 
-  const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
+  // Detect env files when path changes
+  useEffect(() => {
+    if (form.path) {
+      api.env.detect(form.path).then(setEnvFiles).catch(() => setEnvFiles([]));
+    }
+  }, [form.path]);
+
+  const set = (key) => (e) => {
+    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm(prev => ({ ...prev, [key]: val }));
+  };
 
   const handleTypeChange = (type) => {
     setForm(prev => ({
       ...prev, type,
       command: prev.command === DEFAULT_COMMANDS[prev.type] ? (DEFAULT_COMMANDS[type] || '') : prev.command,
-      port: prev.port === DEFAULT_PORTS[prev.type] ? (DEFAULT_PORTS[type] || '') : prev.port,
-      ide: DEFAULT_IDES[type] || 'VS Code',
+      port:    prev.port    === DEFAULT_PORTS[prev.type]    ? (DEFAULT_PORTS[type]    || '') : prev.port,
+      ide:     DEFAULT_IDES[type] || 'VS Code',
     }));
-    // Load step template for this type
     if (STEP_TEMPLATES[type]) setSteps(STEP_TEMPLATES[type].map(s => ({ ...s })));
   };
 
-  // ── Folder browse ──────────────────────────────────────────────────────────
-  const browseFolder = async () => {
-    const picked = await window.launcher.pickFolder();
+  const browse = async () => {
+    const picked = await api.pickFolder();
     if (picked) setForm(prev => ({ ...prev, path: picked }));
   };
 
-  // ── Step editor helpers ────────────────────────────────────────────────────
-  const loadTemplate = () => {
-    const tpl = STEP_TEMPLATES[form.type];
-    if (tpl) setSteps(tpl.map(s => ({ ...s })));
-    else setSteps([{ label: 'Start', cmd: form.command, wait: false }]);
-  };
+  const addStep    = ()          => setSteps(prev => [...prev, emptyStep()]);
+  const removeStep = (i)         => setSteps(prev => prev.filter((_, x) => x !== i));
+  const moveUp     = (i)         => { if (i === 0) return; const s=[...steps]; [s[i-1],s[i]]=[s[i],s[i-1]]; setSteps(s); };
+  const moveDown   = (i)         => { if (i===steps.length-1) return; const s=[...steps]; [s[i+1],s[i]]=[s[i],s[i+1]]; setSteps(s); };
+  const setStep    = (i, k, v)   => setSteps(prev => prev.map((s, x) => x===i ? {...s,[k]:v} : s));
 
-  const addStep = () => setSteps(prev => [...prev, emptyStep()]);
-  const removeStep = (i) => setSteps(prev => prev.filter((_, idx) => idx !== i));
-  const moveUp = (i) => { if (i === 0) return; const s = [...steps];[s[i - 1], s[i]] = [s[i], s[i - 1]]; setSteps(s); };
-  const moveDown = (i) => { if (i === steps.length - 1) return; const s = [...steps];[s[i + 1], s[i]] = [s[i], s[i + 1]]; setSteps(s); };
-  const setStep = (i, key, val) => setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, [key]: val } : s));
-
-  // ── Save ───────────────────────────────────────────────────────────────────
   const handleSubmit = () => {
     if (!form.name.trim()) { alert('Project name is required'); return; }
     if (!form.path.trim()) { alert('Project path is required'); return; }
-
-    const finalSteps = useSteps ? steps.filter(s => s.cmd.trim()) : [];
-    // If not using steps, command is the single run command
     if (!useSteps && !form.command.trim()) { alert('Run command is required'); return; }
-
     onSave({
       ...form,
-      port: Number(form.port) || null,
-      startup_steps: finalSteps,
+      port:          Number(form.port) || null,
+      startup_steps: useSteps ? steps.filter(s => s.cmd.trim()) : [],
+      open_terminal: form.open_terminal ? 1 : 0,
+      open_browser:  form.open_browser  ? 1 : 0,
     });
   };
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-wide">
         <div className="modal-header">
           <h3>{isEdit ? 'Edit project' : 'Add project'}</h3>
           <div className="modal-tabs">
-            <button className={`modal-tab${tab === 'basic' ? ' active' : ''}`} onClick={() => setTab('basic')}>Basic</button>
-            <button className={`modal-tab${tab === 'steps' ? ' active' : ''}`} onClick={() => setTab('steps')}>
-              Startup steps {steps.length > 0 && <span className="step-count">{steps.length}</span>}
-            </button>
+            {['basic','steps','options'].map(t => (
+              <button key={t} className={`modal-tab ${tab===t?'active':''}`} onClick={() => setTab(t)}>
+                {t === 'steps' && steps.length > 0
+                  ? `Steps (${steps.length})`
+                  : t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* ── BASIC TAB ─────────────────────────────────────────────── */}
+        {/* BASIC TAB */}
         {tab === 'basic' && (
           <div className="modal-body">
-            <div className="field">
-              <label>Project name</label>
-              <input value={form.name} onChange={set('name')} placeholder="my-django-app" />
-            </div>
-
-            <div className="field">
-              <label>Path</label>
+            <Field label="Project name">
+              <input value={form.name} onChange={set('name')} placeholder="my-project" />
+            </Field>
+            <Field label="Path">
               <div className="path-row">
-                <input value={form.path} onChange={set('path')} placeholder="C:\projects\my-django-app" className="path-input" />
-                <button className="btn browse-btn" onClick={browseFolder} title="Browse for folder">
-                  Browse…
-                </button>
+                <input value={form.path} onChange={set('path')} placeholder="C:\projects\my-project" className="path-input" />
+                <button className="btn browse-btn" onClick={browse}>Browse…</button>
               </div>
-            </div>
-
+            </Field>
             <div className="field-row">
-              <div className="field flex1">
-                <label>Type</label>
-                <select value={form.type} onChange={(e) => handleTypeChange(e.target.value)}>
-                  {TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              <Field label="Type" cls="flex1">
+                <select value={form.type} onChange={e => handleTypeChange(e.target.value)}>
+                  {TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
                 </select>
-              </div>
-              <div className="field flex1">
-                <label>IDE</label>
+              </Field>
+              <Field label="IDE" cls="flex1">
                 <select value={form.ide} onChange={set('ide')}>
-                  {IDE_OPTIONS.map(i => <option key={i} value={i}>{i}</option>)}
+                  {IDE_OPTIONS.map(i => <option key={i}>{i}</option>)}
                 </select>
-              </div>
-              <div className="field" style={{ width: 100 }}>
-                <label>Port</label>
+              </Field>
+              <Field label="Port" cls="w100">
                 <input value={form.port} onChange={set('port')} placeholder="8000" />
-              </div>
+              </Field>
             </div>
-
-            <div className="field">
-              <label>Run command <span className="label-hint">(used when startup steps are off)</span></label>
+            <Field label="Run command">
               <input value={form.command} onChange={set('command')} placeholder="python manage.py runserver" />
-            </div>
-
+            </Field>
+            <Field label="Browser URL (optional)">
+              <input value={form.url} onChange={set('url')} placeholder="http://localhost:8000" />
+            </Field>
+            {envFiles.length > 0 && (
+              <Field label="Default .env file">
+                <select value={form.env_file} onChange={set('env_file')}>
+                  <option value="">Auto-detect</option>
+                  {envFiles.map(f => (
+                    <option key={f.filename} value={f.filename}>{f.filename}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <div className="toggle-row">
               <label className="toggle-label">
                 <input type="checkbox" checked={useSteps} onChange={e => setUseSteps(e.target.checked)} />
                 Use startup steps instead of single command
               </label>
-              {useSteps && (
-                <button className="btn small" onClick={() => setTab('steps')}>
-                  Configure steps →
-                </button>
-              )}
             </div>
           </div>
         )}
 
-        {/* ── STEPS TAB ─────────────────────────────────────────────── */}
+        {/* STEPS TAB */}
         {tab === 'steps' && (
           <div className="modal-body">
             <div className="steps-header">
               <p className="steps-help">
-                Steps run <strong>in order</strong>. Steps with <em>wait</em> must exit before the next starts.
-                The last step (usually the server) should have <em>wait</em> off — it stays running.
+                Steps run in order. <em>Wait</em> = must exit before next step starts.
+                The last step (server) should have wait <strong>off</strong>.
               </p>
-              <button className="btn small" onClick={loadTemplate}>Load template for {form.type}</button>
+              <button className="btn small" onClick={() => {
+                const tpl = STEP_TEMPLATES[form.type];
+                if (tpl) { setSteps(tpl.map(s => ({...s}))); setUseSteps(true); }
+              }}>
+                Load {form.type} template
+              </button>
             </div>
-
-            {steps.length === 0 && (
-              <div className="steps-empty">No steps yet. Click "Load template" or add manually.</div>
-            )}
-
+            {steps.length === 0 && <div className="steps-empty">No steps yet.</div>}
             {steps.map((step, i) => (
               <div key={i} className="step-row">
                 <div className="step-num">{i + 1}</div>
                 <div className="step-fields">
-                  <input
-                    className="step-label-input"
-                    value={step.label}
-                    onChange={e => setStep(i, 'label', e.target.value)}
-                    placeholder="Step name (e.g. Install deps)"
-                  />
-                  <input
-                    className="step-cmd-input"
-                    value={step.cmd}
-                    onChange={e => setStep(i, 'cmd', e.target.value)}
-                    placeholder="Command (e.g. pip install -r requirements.txt)"
-                  />
+                  <input className="step-label-input" value={step.label}
+                    onChange={e => setStep(i,'label',e.target.value)} placeholder="Step name" />
+                  <input className="step-cmd-input" value={step.cmd}
+                    onChange={e => setStep(i,'cmd',e.target.value)} placeholder="Command" />
                   <label className="step-wait-toggle">
-                    <input
-                      type="checkbox"
-                      checked={step.wait}
-                      onChange={e => setStep(i, 'wait', e.target.checked)}
-                    />
+                    <input type="checkbox" checked={step.wait}
+                      onChange={e => setStep(i,'wait',e.target.checked)} />
                     Wait for exit
                   </label>
                 </div>
                 <div className="step-actions">
-                  <button className="icon-btn" onClick={() => moveUp(i)} title="Move up">↑</button>
-                  <button className="icon-btn" onClick={() => moveDown(i)} title="Move down">↓</button>
-                  <button className="icon-btn danger" onClick={() => removeStep(i)} title="Remove">×</button>
+                  <button className="icon-btn" onClick={() => moveUp(i)}>↑</button>
+                  <button className="icon-btn" onClick={() => moveDown(i)}>↓</button>
+                  <button className="icon-btn danger" onClick={() => removeStep(i)}>×</button>
                 </div>
               </div>
             ))}
+            <button className="btn small" style={{marginTop:10}} onClick={addStep}>+ Add step</button>
+          </div>
+        )}
 
-            <button className="btn small" onClick={addStep} style={{ marginTop: 10 }}>+ Add step</button>
+        {/* OPTIONS TAB */}
+        {tab === 'options' && (
+          <div className="modal-body">
+            <div className="section-label">On Start Work</div>
+            <div className="options-list">
+              <label className="option-row">
+                <input type="checkbox" checked={form.open_terminal} onChange={set('open_terminal')} />
+                <div>
+                  <div className="option-title">Open terminal</div>
+                  <div className="option-desc">Launch a new terminal window at the project folder</div>
+                </div>
+              </label>
+              <label className="option-row">
+                <input type="checkbox" checked={form.open_browser} onChange={set('open_browser')} />
+                <div>
+                  <div className="option-title">Open browser</div>
+                  <div className="option-desc">Open the project URL after startup (requires URL to be set)</div>
+                </div>
+              </label>
+            </div>
           </div>
         )}
 
@@ -250,6 +253,15 @@ export default function AddProjectModal({ project, onSave, onClose }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, children, cls }) {
+  return (
+    <div className={`field ${cls || ''}`}>
+      <label>{label}</label>
+      {children}
     </div>
   );
 }

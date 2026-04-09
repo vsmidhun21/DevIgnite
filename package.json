@@ -1,8 +1,8 @@
 {
-  "name": "dev-prj-launcher",
-  "productName": "Dev Project Launcher",
+  "name": "devignite",
+  "productName": "DevIgnite",
   "version": "1.0.0",
-  "description": "Manage and launch all your dev projects from one place",
+  "description": "Ignite your dev projects instantly",
   "main": ".vite/build/main.js",
   "author": "Midhun V S",
   "license": "MIT",

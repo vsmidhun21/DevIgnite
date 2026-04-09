@@ -1,75 +1,77 @@
-// src/main.js — Electron main process (Electron Forge + Vite)
-//
-// This file uses ESM import syntax.
-// Vite compiles it to CJS format (.vite/build/main.js) via rollup output.format:'cjs'
-// Core modules are bundled inline — no runtime path resolution needed.
+// src/main.js — DevIgnite main process
 
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path   from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-
-// electron-squirrel-startup: handles Windows installer shortcuts
 import squirrelStartup from 'electron-squirrel-startup';
 if (squirrelStartup) app.quit();
 
-// Core — Vite bundles all of these into the output .vite/build/main.js
-import { ProjectManager }  from '../core/project-manager/ProjectManager.js';
-import { ExecutionEngine } from '../core/execution-engine/ExecutionEngine.js';
-import { ConfigManager }   from '../core/config-manager/ConfigManager.js';
-import { ProcessManager }  from '../core/process-manager/ProcessManager.js';
-import { getDb, closeDb }  from '../core/db/database.js';
-import { IPC_CHANNELS }    from '../shared/constants/index.js';
+import { ProjectManager }    from '../core/project-manager/ProjectManager.js';
+import { ConfigManager }     from '../core/config-manager/ConfigManager.js';
+import { ProcessManager }    from '../core/process-manager/ProcessManager.js';
+import { ExecutionManager }  from '../core/execution-manager/ExecutionManager.js';
+import { LogManager }        from '../core/log-manager/LogManager.js';
+import { TimeTracker }       from '../core/time-tracker/TimeTracker.js';
+import { EnvManager }        from '../core/env-manager/EnvManager.js';
+import { getDb, closeDb }    from '../core/db/database.js';
+import { IPC_CHANNELS }      from '../shared/constants/index.js';
 
-// __dirname shim for ESM (needed before Vite compiles, harmless after)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// ─── Global state ─────────────────────────────────────────────────────────────
-let projectManager;
-let executionEngine;
-let configManager;
-let dbPath;
-const processManager = new ProcessManager();
-const logEntries     = new Map();
+// ── Singletons ────────────────────────────────────────────────────────────────
 let mainWindow;
+let dbPath;
+let logsDir;
+let projectManager;
+let configManager;
+let timeTracker;
+let logManager;
+let envManager;
+let executionManager;
+const processManager = new ProcessManager();
 
-// ─── Initialize core modules ──────────────────────────────────────────────────
+// Active session map: projectId → sessionId
+const activeSessions = new Map();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 function initializeApp() {
-  dbPath = path.join(app.getPath('userData'), 'launcher.sqlite');
-
-  executionEngine = new ExecutionEngine(
-    (projectId, level, message) => {
-      mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, {
-        projectId, level, message, ts: new Date().toISOString(),
-      });
-      const entry = logEntries.get(projectId);
-      if (entry) {
-        try {
-          getDb(dbPath)
-            .prepare('INSERT INTO logs (project_id, level, message, session_id) VALUES (?,?,?,?)')
-            .run(projectId, level, message, entry.sessionId);
-        } catch {}
-      }
-    },
-    (projectId, status, pid) => {
-      mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid });
-    }
-  );
+  const userData = app.getPath('userData');
+  dbPath  = path.join(userData, 'devignite.sqlite');
+  logsDir = path.join(userData, 'logs');
 
   projectManager = new ProjectManager(dbPath);
   configManager  = new ConfigManager(dbPath);
+  timeTracker    = new TimeTracker(dbPath);
+  envManager     = new EnvManager();
+
+  logManager = new LogManager(logsDir, (projectId, level, message, ts) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, { projectId, level, message, ts });
+  });
+
+  executionManager = new ExecutionManager(
+    logManager,
+    timeTracker,
+    envManager,
+    processManager,
+    (projectId, status, pid) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid });
+    },
+    (projectId, sessionId, liveSecs) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.TICK_UPDATE, { projectId, sessionId, liveSecs });
+    }
+  );
 }
 
-// ─── Create window ────────────────────────────────────────────────────────────
+// ── Window ────────────────────────────────────────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200, height: 780,
-    minWidth: 900, minHeight: 600,
+    width: 1280, height: 820,
+    minWidth: 960, minHeight: 640,
+    title: 'DevIgnite',
     icon: path.join(__dirname, '../../assets/icon.png'),
-    title: 'Dev Project Launcher',
     webPreferences: {
-      // Forge compiles preload.js to the same .vite/build/ directory
       preload:          path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration:  false,
@@ -77,9 +79,6 @@ function createWindow() {
     },
   });
 
-  // MAIN_WINDOW_VITE_DEV_SERVER_URL:
-  //   npm start  → "http://localhost:5173"  (truthy) → loadURL + DevTools
-  //   npm make   → undefined               (falsy)  → loadFile, no DevTools
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
     mainWindow.webContents.openDevTools();
@@ -90,69 +89,105 @@ function createWindow() {
   }
 }
 
-// ─── IPC: Folder picker ───────────────────────────────────────────────────────
+// ── IPC: Dialog ───────────────────────────────────────────────────────────────
 ipcMain.handle('dialog:openFolder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory'],
-    title: 'Select project folder',
+    properties: ['openDirectory'], title: 'Select project folder',
   });
   return result.canceled ? null : result.filePaths[0];
 });
 
-// ─── IPC: Projects ────────────────────────────────────────────────────────────
+// ── IPC: Projects ─────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () =>
   projectManager.listAll().map(p => ({
     ...p,
-    status:   processManager.getStatus(p.id),
-    pid:      processManager.getInfo(p.id)?.pid      ?? null,
-    uptimeMs: processManager.getInfo(p.id)?.uptimeMs ?? 0,
+    status:     processManager.getStatus(p.id),
+    pid:        processManager.getInfo(p.id)?.pid      ?? null,
+    uptimeMs:   processManager.getInfo(p.id)?.uptimeMs ?? 0,
+    sessionId:  activeSessions.get(p.id) ?? null,
+    todaySecs:  timeTracker.getTodayTotal(p.id),
   }))
 );
 ipcMain.handle(IPC_CHANNELS.PROJECT_GET,    (_, id)           => projectManager.getById(id));
 ipcMain.handle(IPC_CHANNELS.PROJECT_ADD,    (_, data)         => projectManager.add(data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE, (_, { id, data }) => projectManager.update(id, data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
-  if (processManager.isRunning(id)) processManager.stop(id);
+  if (processManager.isRunning(id)) {
+    const sid = activeSessions.get(id);
+    if (sid) executionManager.stopWork(projectManager.getById(id), sid);
+  }
+  activeSessions.delete(id);
   return projectManager.delete(id);
 });
 
-// ─── IPC: Execution ───────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.PROJECT_RUN, async (_, projectId) => {
-  const project   = projectManager.getById(projectId);
-  if (!project) throw new Error(`Project ${projectId} not found`);
-  const envConfig = configManager.getMergedConfig(project, project.active_env);
-  const sessionId = crypto.randomUUID();
-  logEntries.set(projectId, { sessionId });
-  const child = await executionEngine.run(project, envConfig);
-  if (child) processManager.register(projectId, child, sessionId);
-  return { ok: true };
-});
-
-ipcMain.handle(IPC_CHANNELS.PROJECT_STOP, (_, projectId) => {
-  logEntries.delete(projectId);
-  return { ok: processManager.stop(projectId) };
-});
-
-ipcMain.handle(IPC_CHANNELS.PROJECT_RESTART, async (_, projectId) => {
-  const project   = projectManager.getById(projectId);
-  const envConfig = configManager.getMergedConfig(project, project.active_env);
-  const sessionId = crypto.randomUUID();
-  await processManager.restart(projectId, async () => {
-    logEntries.set(projectId, { sessionId });
-    const child = await executionEngine.run(project, envConfig);
-    if (child) processManager.register(projectId, child, sessionId);
-  });
-  return { ok: true };
-});
-
-ipcMain.handle(IPC_CHANNELS.IDE_OPEN, (_, projectId) => {
+// ── IPC: START WORK ───────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.START_WORK, async (_, projectId) => {
   const project = projectManager.getById(projectId);
-  if (!project) throw new Error(`Project ${projectId} not found`);
-  executionEngine.openIDE(project);
+  if (!project) return { ok: false, error: 'Project not found' };
+
+  // Prevent double-start
+  if (processManager.isRunning(projectId)) {
+    return { ok: false, error: 'Already running' };
+  }
+
+  const sessionId = crypto.randomUUID();
+  activeSessions.set(projectId, sessionId);
+
+  const result = await executionManager.startWork(project, sessionId);
+
+  if (!result.ok) {
+    activeSessions.delete(projectId);
+  }
+
+  return result;
+});
+
+// ── IPC: STOP WORK ────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.STOP_WORK, (_, projectId) => {
+  const sessionId = activeSessions.get(projectId);
+  const project   = projectManager.getById(projectId);
+
+  if (!project) return { ok: false, error: 'Project not found' };
+
+  const result = executionManager.stopWork(project, sessionId || '');
+  activeSessions.delete(projectId);
+  return result;
+});
+
+// ── IPC: Logs ─────────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.LOG_READ, (_, { projectId, which }) =>
+  logManager.readParsed(projectId, which || 'current')
+);
+ipcMain.handle(IPC_CHANNELS.LOG_META, (_, projectId) =>
+  logManager.getMeta(projectId)
+);
+ipcMain.handle(IPC_CHANNELS.LOG_CLEAR, (_, projectId) => {
+  logManager.clear(projectId);
+  getDb(dbPath).prepare('DELETE FROM logs WHERE project_id=?').run(projectId);
   return { ok: true };
 });
 
-// ─── IPC: Config & Logs ───────────────────────────────────────────────────────
+// ── IPC: Time Tracking ────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.SESSION_HISTORY, (_, { projectId, limit }) =>
+  timeTracker.getHistory(projectId, limit || 20)
+);
+ipcMain.handle(IPC_CHANNELS.SESSION_TODAY, (_, projectId) =>
+  ({ seconds: timeTracker.getTodayTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getTodayTotal(projectId)) })
+);
+ipcMain.handle(IPC_CHANNELS.SESSION_ALL_TIME, (_, projectId) =>
+  ({ seconds: timeTracker.getAllTimeTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getAllTimeTotal(projectId)) })
+);
+
+// ── IPC: Env ──────────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.ENV_DETECT, (_, { projectPath }) =>
+  envManager.detectEnvFiles(projectPath)
+);
+ipcMain.handle(IPC_CHANNELS.ENV_PARSE, (_, { projectPath, filename }) => {
+  const fullPath = require('path').join(projectPath, filename);
+  return envManager.parseEnvFile(fullPath);
+});
+
+// ── IPC: Config ───────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.CONFIG_GET, (_, { projectId, env }) =>
   configManager.getMergedConfig(projectManager.getById(projectId), env)
 );
@@ -160,12 +195,8 @@ ipcMain.handle(IPC_CHANNELS.CONFIG_SET, (_, { projectId, env, overrides }) => {
   configManager.setEnvConfig(projectId, env, overrides);
   return { ok: true };
 });
-ipcMain.handle(IPC_CHANNELS.LOG_CLEAR, (_, projectId) => {
-  getDb(dbPath).prepare('DELETE FROM logs WHERE project_id=?').run(projectId);
-  return { ok: true };
-});
 
-// ─── App lifecycle ─────────────────────────────────────────────────────────────
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   initializeApp();
   createWindow();
@@ -175,7 +206,9 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  executionManager?.stopAllTicks();
   processManager.stopAll();
+  logManager?.closeAll();
   closeDb();
   if (process.platform !== 'darwin') app.quit();
 });

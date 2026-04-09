@@ -9,8 +9,8 @@ export default function StatusBar({ message, runningCount }) {
     <div className="status-bar">
       {runningCount > 0 && <div className="status-running-dot" />}
       <span>{message}</span>
-      {runningCount > 0 && <span style={{marginLeft:'auto'}}>{runningCount} running</span>}
-      <span style={{marginLeft: runningCount > 0 ? 0 : 'auto'}}>{time}</span>
+      {runningCount > 0 && <span className="status-running-count">{runningCount} running</span>}
+      <span className="status-time">{time}</span>
     </div>
   );
 }

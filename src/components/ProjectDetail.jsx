@@ -1,117 +1,128 @@
-// desktop/renderer/src/components/ProjectDetail.jsx
 import { useEffect, useRef } from 'react';
+import StartWork   from './StartWork';
+import LogViewer   from './LogViewer';
+import TimeDisplay from './TimeDisplay';
+import EnvSelector from './EnvSelector';
 
-const ENVS = ['dev', 'staging', 'prod'];
+const ENVS = ['dev', 'test', 'staging', 'prod'];
+const api  = window.devignite;
 
-function fmtUptime(ms) {
-  if (!ms) return '—';
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  return [h > 0 && `${h}h`, m > 0 && `${m}m`, `${sec}s`].filter(Boolean).join(' ');
-}
-
-export default function ProjectDetail({ project, logs, onRun, onStop, onOpenIDE, onEdit, onDelete, onSetEnv }) {
-  const isRunning = project.status === 'running';
-  const logRef = useRef(null);
-
-  // Auto-scroll log panel to bottom
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [logs]);
-
+export default function ProjectDetail({
+  project, logs, liveSecs,
+  onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload,
+}) {
   const steps = (() => {
     try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; }
   })();
 
+  const handleEnvFileChange = async (filename) => {
+    await api.projects.update(project.id, { env_file: filename });
+    onReload?.();
+  };
+
   return (
     <div className="project-detail">
-      {/* Header */}
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="detail-header">
-        <div>
+        <div className="detail-title-block">
           <h2 className="detail-title">{project.name}</h2>
           <div className="detail-path">{project.path}</div>
         </div>
         <div className="header-actions">
-          <button className="btn" onClick={onOpenIDE}>Open {project.ide || 'IDE'}</button>
           <button className="btn" onClick={onEdit}>Edit</button>
-          {isRunning
-            ? <button className="btn danger" onClick={onStop}>■ Stop</button>
-            : <button className="btn primary" onClick={onRun}>▶ Run</button>
-          }
+          <button className="btn danger small" onClick={onDelete}>Delete</button>
         </div>
       </div>
 
-      {/* Meta grid */}
-      <section>
-        <div className="section-label">Overview</div>
-        <div className="meta-grid">
-          <MetaCard label="Type"   value={project.type} />
-          <MetaCard label="Status" value={project.status || 'stopped'} accent={isRunning ? 'running' : ''} />
-          <MetaCard label="Port"   value={project.port ? `:${project.port}` : '—'} />
-          <MetaCard label="IDE"    value={project.ide} />
-          <MetaCard label="Uptime" value={fmtUptime(project.uptimeMs)} />
-          <MetaCard label="PID"    value={project.pid ?? '—'} />
-        </div>
-      </section>
+      {/* ── START WORK ─────────────────────────────────────────────────── */}
+      <StartWork
+        project={project}
+        liveSecs={liveSecs}
+        onStartWork={onStartWork}
+        onStopWork={onStopWork}
+      />
 
-      {/* Environment */}
-      <section>
-        <div className="section-label">Environment</div>
-        <div className="env-row">
-          {ENVS.map(env => (
-            <button key={env}
-              className={`env-pill ${project.active_env === env ? 'active' : ''}`}
-              onClick={() => onSetEnv(env)}>
-              {env}
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* ── Two-column body ────────────────────────────────────────────── */}
+      <div className="detail-body">
 
-      {/* Startup steps or single command */}
-      <section>
-        {steps.length > 0 ? (
-          <>
-            <div className="section-label">Startup steps</div>
-            <div className="steps-display">
-              {steps.map((s, i) => (
-                <div key={i} className="step-badge">
-                  <span className="step-badge-num">{i + 1}</span>
-                  <span className="step-badge-label">{s.label || 'Step'}</span>
-                  <span className="step-badge-cmd">$ {s.cmd}</span>
-                  {s.wait && <span className="step-badge-wait">wait</span>}
-                </div>
+        {/* Left column */}
+        <div className="detail-left">
+
+          {/* Meta */}
+          <section>
+            <div className="section-label">Overview</div>
+            <div className="meta-grid">
+              <MetaCard label="Type"   value={project.type} />
+              <MetaCard label="Status" value={project.status || 'stopped'} accent={project.status === 'running' ? 'running' : ''} />
+              <MetaCard label="Port"   value={project.port ? `:${project.port}` : '—'} />
+              <MetaCard label="IDE"    value={project.ide} />
+              {project.url && <MetaCard label="URL" value={project.url} />}
+              <MetaCard label="PID"    value={project.pid ?? '—'} />
+            </div>
+          </section>
+
+          {/* Environment */}
+          <section>
+            <div className="section-label">Environment</div>
+            <div className="env-row">
+              {ENVS.map(env => (
+                <button
+                  key={env}
+                  className={`env-pill ${project.active_env === env ? 'active' : ''}`}
+                  onClick={() => onSetEnv(env)}
+                >
+                  {env}
+                </button>
               ))}
             </div>
-          </>
-        ) : (
-          <>
-            <div className="section-label">Command</div>
-            <div className="cmd-display">$ {project.command}</div>
-          </>
-        )}
-      </section>
+          </section>
 
-      {/* Logs */}
-      <section className="log-section">
-        <div className="section-label">Logs</div>
-        <div className="log-panel" ref={logRef}>
-          {logs.length === 0
-            ? <div className="log-empty">No output yet. Run the project to see logs.</div>
-            : logs.map((line, i) => (
-              <div key={i} className={`log-line ${line.level}`}>
-                <span className="log-ts">{new Date(line.ts).toTimeString().slice(0, 8)}</span>
-                {line.message}
-              </div>
-            ))
-          }
+          {/* .env file selector */}
+          <section>
+            <div className="section-label">Env file</div>
+            <EnvSelector project={project} onChange={handleEnvFileChange} />
+          </section>
+
+          {/* Command / Steps */}
+          <section>
+            {steps.length > 0 ? (
+              <>
+                <div className="section-label">Startup steps</div>
+                <div className="steps-display">
+                  {steps.map((s, i) => (
+                    <div key={i} className="step-badge">
+                      <span className="step-badge-num">{i + 1}</span>
+                      <span className="step-badge-label">{s.label || 'Step'}</span>
+                      <span className="step-badge-cmd">$ {s.cmd}</span>
+                      {s.wait && <span className="step-badge-wait">wait</span>}
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="section-label">Command</div>
+                <div className="cmd-display">$ {project.command}</div>
+              </>
+            )}
+          </section>
+
+          {/* Time tracking */}
+          <section>
+            <div className="section-label">Time tracking</div>
+            <TimeDisplay projectId={project.id} />
+          </section>
+
         </div>
-      </section>
 
-      {/* Danger zone */}
-      <section className="danger-zone">
-        <button className="btn small danger" onClick={onDelete}>Delete project</button>
-      </section>
+        {/* Right column — Logs */}
+        <div className="detail-right">
+          <div className="section-label">Logs</div>
+          <LogViewer projectId={project.id} streamedLogs={logs} />
+        </div>
+
+      </div>
     </div>
   );
 }

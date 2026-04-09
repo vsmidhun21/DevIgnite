@@ -1,12 +1,6 @@
-//import Database from 'better-sqlite3';
-
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-
-// const Database = require('better-sqlite3');
-// const path = require('path');
-// const fs = require('fs');
 
 let db = null;
 
@@ -31,8 +25,12 @@ function runMigrations(database) {
       command        TEXT    NOT NULL DEFAULT '',
       ide            TEXT    NOT NULL DEFAULT 'VS Code',
       port           INTEGER,
+      url            TEXT,
       active_env     TEXT    NOT NULL DEFAULT 'dev',
+      env_file       TEXT,
       startup_steps  TEXT    DEFAULT '[]',
+      open_terminal  INTEGER DEFAULT 1,
+      open_browser   INTEGER DEFAULT 1,
       created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
@@ -58,16 +56,29 @@ function runMigrations(database) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_logs_project ON logs(project_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id       INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      session_id       TEXT    NOT NULL UNIQUE,
+      started_at       TEXT    NOT NULL,
+      ended_at         TEXT,
+      duration_seconds INTEGER,
+      env_used         TEXT,
+      status           TEXT    NOT NULL DEFAULT 'running'
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id, started_at DESC);
   `);
 
-  // Add startup_steps column to existing DBs (safe migration)
-  try {
-    database.exec(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
-  } catch { } // Column already exists — ignore
+  const safeAlter = (sql) => { try { database.exec(sql); } catch {} };
+  safeAlter(`ALTER TABLE projects ADD COLUMN url TEXT`);
+  safeAlter(`ALTER TABLE projects ADD COLUMN env_file TEXT`);
+  safeAlter(`ALTER TABLE projects ADD COLUMN open_terminal INTEGER DEFAULT 1`);
+  safeAlter(`ALTER TABLE projects ADD COLUMN open_browser INTEGER DEFAULT 1`);
+  safeAlter(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
 }
 
 export function closeDb() {
   if (db) { db.close(); db = null; }
 }
-
-// module.exports = { getDb, closeDb };
