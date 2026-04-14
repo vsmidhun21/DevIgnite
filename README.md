@@ -222,16 +222,12 @@ For issues or questions, please open an issue on the repository.
 
 ---
 
-## 📄 Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for recent changes.
-
----
-
 ## 👥 Team
 
 - Midhun V S
 - Claude AI
+- ChatGPT
+- Gemini
 
 ---
 
@@ -263,6 +259,6 @@ See [CHANGELOG.md](CHANGELOG.md) for recent changes.
 ---
 
 ## 📸 App
-<img src="assets/app.png" alt="App">
+<img src="assets/DevIgnite.png" alt="App">
 
 **Happy Coding! 🚀**
