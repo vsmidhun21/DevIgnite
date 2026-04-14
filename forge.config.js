@@ -5,7 +5,7 @@ module.exports = {
   packagerConfig: {
     name:           'DevIgnite',
     executableName: 'DevIgnite',
-    icon:           './assets/icon',
+    icon:           './assets/icon.ico',
     asar: true,
     prune: true,
     ignore: (file) => {
