@@ -1,36 +1,35 @@
-// src/components/EnvSelector.jsx
-// Detects .env files in the project folder and lets the user pick one.
-
 import { useState, useEffect } from 'react';
 
 const api = window.devignite;
 
-export default function EnvSelector({ project, onChange }) {
-  const [files,    setFiles]    = useState([]);
+export default function EnvSelector({ project, envFiles, onChange }) {
   const [selected, setSelected] = useState(project.env_file || '');
   const [preview,  setPreview]  = useState(null);
 
   useEffect(() => {
-    if (!project.path) return;
-    api.env.detect(project.path).then(setFiles);
-  }, [project.path]);
+    setSelected(project.env_file || '');
+    setPreview(null);
+  }, [project.env_file]);
 
   const handleChange = async (filename) => {
     setSelected(filename);
     setPreview(null);
     onChange?.(filename || null);
-
     if (filename) {
-      const parsed = await api.env.parse(project.path, filename);
-      setPreview(parsed);
+      try {
+        const parsed = await api.env.parse(project.path, filename);
+        setPreview(parsed);
+      } catch {}
     }
   };
+
+  const files = envFiles || [];
 
   if (files.length === 0) {
     return (
       <div className="env-selector empty">
-        <span className="env-none-icon">⚠</span>
-        <span>No .env files found in project folder</span>
+        <span className="env-none-icon">○</span>
+        <span>No .env files found — commands run without environment file</span>
       </div>
     );
   }
@@ -38,10 +37,7 @@ export default function EnvSelector({ project, onChange }) {
   return (
     <div className="env-selector">
       <div className="env-files">
-        <button
-          className={`env-pill ${!selected ? 'active' : ''}`}
-          onClick={() => handleChange('')}
-        >
+        <button className={`env-pill ${!selected ? 'active' : ''}`} onClick={() => handleChange('')}>
           auto
         </button>
         {files.map(f => (
@@ -54,17 +50,16 @@ export default function EnvSelector({ project, onChange }) {
           </button>
         ))}
       </div>
-
       {preview && (
         <div className="env-preview">
-          {Object.entries(preview).slice(0, 8).map(([k, v]) => (
+          {Object.entries(preview).slice(0, 6).map(([k, v]) => (
             <div key={k} className="env-kv">
               <span className="env-key">{k}</span>
-              <span className="env-val">{v.length > 30 ? v.slice(0, 30) + '…' : v}</span>
+              <span className="env-val">{String(v).length > 28 ? String(v).slice(0, 28)+'…' : String(v)}</span>
             </div>
           ))}
-          {Object.keys(preview).length > 8 && (
-            <div className="env-more">+{Object.keys(preview).length - 8} more vars</div>
+          {Object.keys(preview).length > 6 && (
+            <div className="env-more">+{Object.keys(preview).length - 6} more</div>
           )}
         </div>
       )}

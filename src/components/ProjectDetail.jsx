@@ -1,23 +1,34 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import StartWork   from './StartWork';
 import LogViewer   from './LogViewer';
 import TimeDisplay from './TimeDisplay';
 import EnvSelector from './EnvSelector';
 
-const ENVS = ['dev', 'test', 'staging', 'prod'];
-const api  = window.devignite;
+const api = window.devignite;
 
 export default function ProjectDetail({
   project, logs, liveSecs,
   onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload,
 }) {
+  const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
+  const isRunning = project.status === 'running' || project.status === 'starting';
+
   const steps = (() => {
     try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; }
   })();
 
+  useEffect(() => {
+    if (!project.path) return;
+    api.env.detect(project.path).then(setEnvData).catch(() => {});
+  }, [project.path]);
+
   const handleEnvFileChange = async (filename) => {
-    await api.projects.update(project.id, { env_file: filename });
+    await api.projects.update(project.id, { env_file: filename || null });
     onReload?.();
+  };
+
+  const handleStop = async () => {
+    await onStopWork();
   };
 
   return (
@@ -35,56 +46,98 @@ export default function ProjectDetail({
         </div>
       </div>
 
-      {/* ── START WORK ─────────────────────────────────────────────────── */}
-      <StartWork
-        project={project}
-        liveSecs={liveSecs}
-        onStartWork={onStartWork}
-        onStopWork={onStopWork}
-      />
+      {/* ── Action bar ─────────────────────────────────────────────────── */}
+      <div className="action-bar">
+        {/* START WORK — the all-in-one button */}
+        <StartWork
+          project={project}
+          liveSecs={liveSecs}
+          onStartWork={onStartWork}
+          onStopWork={onStopWork}
+        />
 
-      {/* ── Two-column body ────────────────────────────────────────────── */}
+        {/* Individual buttons */}
+        <div className="action-sep" />
+
+        <button className="action-btn" title="Run server only (no IDE/terminal)"
+          onClick={() => api.work.run(project.id)}
+          disabled={isRunning}>
+          <span className="action-btn-icon run-icon" />
+          Run
+        </button>
+
+        {isRunning && (
+          <button className="action-btn danger" title="Stop server"
+            onClick={() => api.work.stop(project.id)}>
+            <span className="action-btn-icon stop-sq-icon" />
+            Stop
+          </button>
+        )}
+
+        <button className="action-btn" title="Open IDE"
+          onClick={() => api.work.openIDE(project.id)}>
+          <span className="action-btn-icon ide-icon" />
+          IDE
+        </button>
+
+        <button className="action-btn" title="Open terminal at project path"
+          onClick={() => api.work.openTerminal(project.id)}>
+          <span className="action-btn-icon term-icon" />
+          Terminal
+        </button>
+
+        {project.url && (
+          <button className="action-btn" title={`Open ${project.url}`}
+            onClick={() => api.work.openBrowser(project.id)}>
+            <span className="action-btn-icon browser-icon" />
+            Browser
+          </button>
+        )}
+      </div>
+
+      {/* ── Body ────────────────────────────────────────────────────────── */}
       <div className="detail-body">
-
-        {/* Left column */}
         <div className="detail-left">
 
-          {/* Meta */}
           <section>
             <div className="section-label">Overview</div>
             <div className="meta-grid">
-              <MetaCard label="Type"   value={project.type} />
-              <MetaCard label="Status" value={project.status || 'stopped'} accent={project.status === 'running' ? 'running' : ''} />
-              <MetaCard label="Port"   value={project.port ? `:${project.port}` : '—'} />
-              <MetaCard label="IDE"    value={project.ide} />
+              <MetaCard label="Type"    value={project.type} />
+              <MetaCard label="Status"  value={project.status || 'stopped'} accent={isRunning ? 'running' : ''} />
+              <MetaCard label="Port"    value={project.port ? `:${project.port}` : '—'} />
+              <MetaCard label="IDE"     value={project.ide} />
               {project.url && <MetaCard label="URL" value={project.url} />}
-              <MetaCard label="PID"    value={project.pid ?? '—'} />
+              <MetaCard label="PID"     value={project.pid ?? '—'} />
             </div>
           </section>
 
-          {/* Environment */}
+          {/* Env tabs — only show envs that have actual .env files (+ dev always) */}
           <section>
             <div className="section-label">Environment</div>
             <div className="env-row">
-              {ENVS.map(env => (
-                <button
-                  key={env}
-                  className={`env-pill ${project.active_env === env ? 'active' : ''}`}
-                  onClick={() => onSetEnv(env)}
-                >
-                  {env}
-                </button>
-              ))}
+              {['dev','test','staging','prod'].map(env => {
+                const available = envData.available.includes(env);
+                return (
+                  <button
+                    key={env}
+                    className={`env-pill ${project.active_env === env ? 'active' : ''} ${!available ? 'inactive' : ''}`}
+                    onClick={() => available && onSetEnv(env)}
+                    title={available ? `Switch to ${env}` : `No .env.${env} file found`}
+                    disabled={!available}
+                  >
+                    {env}
+                    {!available && <span className="env-no-file" title="No env file">○</span>}
+                  </button>
+                );
+              })}
             </div>
           </section>
 
-          {/* .env file selector */}
           <section>
             <div className="section-label">Env file</div>
-            <EnvSelector project={project} onChange={handleEnvFileChange} />
+            <EnvSelector project={project} envFiles={envData.files} onChange={handleEnvFileChange} />
           </section>
 
-          {/* Command / Steps */}
           <section>
             {steps.length > 0 ? (
               <>
@@ -108,7 +161,6 @@ export default function ProjectDetail({
             )}
           </section>
 
-          {/* Time tracking */}
           <section>
             <div className="section-label">Time tracking</div>
             <TimeDisplay projectId={project.id} />
@@ -116,12 +168,10 @@ export default function ProjectDetail({
 
         </div>
 
-        {/* Right column — Logs */}
         <div className="detail-right">
           <div className="section-label">Logs</div>
           <LogViewer projectId={project.id} streamedLogs={logs} />
         </div>
-
       </div>
     </div>
   );
@@ -131,7 +181,7 @@ function MetaCard({ label, value, accent }) {
   return (
     <div className="meta-card">
       <div className="meta-label">{label}</div>
-      <div className={`meta-value ${accent || ''}`}>{value ?? '—'}</div>
+      <div className={`meta-value ${accent||''}`}>{value ?? '—'}</div>
     </div>
   );
 }

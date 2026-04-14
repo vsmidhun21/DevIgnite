@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Sidebar       from './components/Sidebar';
-import ProjectDetail from './components/ProjectDetail';
+import Sidebar         from './components/Sidebar';
+import ProjectDetail   from './components/ProjectDetail';
 import AddProjectModal from './components/AddProjectModal';
-import StatusBar     from './components/StatusBar';
+import StatusBar       from './components/StatusBar';
 
 const api = window.devignite;
 
@@ -12,8 +12,8 @@ export default function App() {
   const [showModal,   setShowModal]   = useState(false);
   const [editProject, setEditProject] = useState(null);
   const [statusMsg,   setStatusMsg]   = useState('Ready');
-  const [logs,        setLogs]        = useState({});   // { [projectId]: LogLine[] }
-  const [ticks,       setTicks]       = useState({});   // { [projectId]: liveSecs }
+  const [logs,        setLogs]        = useState({});
+  const [ticks,       setTicks]       = useState({});
   const unsubRef = useRef([]);
 
   const loadProjects = useCallback(async () => {
@@ -35,7 +35,11 @@ export default function App() {
       setProjects(prev => prev.map(p =>
         p.id === projectId ? { ...p, status, pid } : p
       ));
-      setStatusMsg(status === 'running' ? `Running (PID ${pid})` : 'Stopped');
+      const name = projects.find(p => p.id === projectId)?.name || `#${projectId}`;
+      if (status === 'running')  setStatusMsg(`${name} running${pid ? ` (PID ${pid})` : ''}`);
+      if (status === 'stopped')  setStatusMsg(`${name} stopped`);
+      if (status === 'error')    setStatusMsg(`${name} error`);
+      if (status === 'starting') setStatusMsg(`${name} starting…`);
     });
 
     const u3 = api.on.tick(({ projectId, liveSecs }) => {
@@ -43,19 +47,29 @@ export default function App() {
     });
 
     unsubRef.current = [u1, u2, u3];
-    return () => unsubRef.current.forEach(fn => fn());
+    return () => unsubRef.current.forEach(fn => fn?.());
   }, [loadProjects]);
 
   const handleStartWork = async (id) => {
     const result = await api.work.start(id);
-    if (!result.ok) setStatusMsg(`Error: ${result.error}`);
-    else setStatusMsg(`Starting ${projects.find(p => p.id === id)?.name}...`);
+    if (result.ok) {
+      const name = projects.find(p => p.id === id)?.name || 'project';
+      setStatusMsg(`Starting ${name}…`);
+    } else {
+      setStatusMsg(`Error: ${result.error}`);
+    }
     await loadProjects();
   };
 
   const handleStopWork = async (id) => {
     const result = await api.work.stop(id);
-    if (result?.duration) setStatusMsg(`Stopped. Session: ${result.duration.formatted}`);
+    if (result?.duration) {
+      setStatusMsg(`Stopped. Session: ${result.duration.formatted}`);
+    } else {
+      setStatusMsg('Stopped');
+    }
+    // Clear logs ticks
+    setTicks(prev => { const n = {...prev}; delete n[id]; return n; });
     await loadProjects();
   };
 
@@ -72,14 +86,14 @@ export default function App() {
   };
 
   const handleDeleteProject = async (id) => {
-    if (!confirm('Delete this project?')) return;
+    if (!confirm('Delete this project? This cannot be undone.')) return;
     await api.projects.delete(id);
     if (selectedId === id) setSelectedId(null);
     await loadProjects();
   };
 
   const handleSetEnv = async (projectId, env) => {
-    await api.projects.update(projectId, { env });
+    await api.projects.update(projectId, { active_env: env });
     await loadProjects();
   };
 
@@ -111,8 +125,10 @@ export default function App() {
         ) : (
           <div className="empty-state">
             <div className="empty-icon">⚡</div>
-            <p>Select a project to ignite it</p>
-            <button className="btn primary" onClick={() => setShowModal(true)}>Add project</button>
+            <p>Select a project or add a new one</p>
+            <button className="btn primary" onClick={() => setShowModal(true)}>
+              Add project
+            </button>
           </div>
         )}
       </main>

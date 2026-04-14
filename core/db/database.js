@@ -24,6 +24,7 @@ function runMigrations(database) {
       type           TEXT    NOT NULL DEFAULT 'Custom',
       command        TEXT    NOT NULL DEFAULT '',
       ide            TEXT    NOT NULL DEFAULT 'VS Code',
+      ide_path       TEXT,
       port           INTEGER,
       url            TEXT,
       active_env     TEXT    NOT NULL DEFAULT 'dev',
@@ -31,6 +32,7 @@ function runMigrations(database) {
       startup_steps  TEXT    DEFAULT '[]',
       open_terminal  INTEGER DEFAULT 1,
       open_browser   INTEGER DEFAULT 1,
+      install_deps   INTEGER DEFAULT 0,
       created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
@@ -54,7 +56,6 @@ function runMigrations(database) {
       session_id  TEXT,
       created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
     );
-
     CREATE INDEX IF NOT EXISTS idx_logs_project ON logs(project_id, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -67,16 +68,17 @@ function runMigrations(database) {
       env_used         TEXT,
       status           TEXT    NOT NULL DEFAULT 'running'
     );
-
     CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id, started_at DESC);
   `);
 
-  const safeAlter = (sql) => { try { database.exec(sql); } catch {} };
-  safeAlter(`ALTER TABLE projects ADD COLUMN url TEXT`);
-  safeAlter(`ALTER TABLE projects ADD COLUMN env_file TEXT`);
-  safeAlter(`ALTER TABLE projects ADD COLUMN open_terminal INTEGER DEFAULT 1`);
-  safeAlter(`ALTER TABLE projects ADD COLUMN open_browser INTEGER DEFAULT 1`);
-  safeAlter(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
+  const safe = (sql) => { try { database.exec(sql); } catch {} };
+  safe(`ALTER TABLE projects ADD COLUMN url TEXT`);
+  safe(`ALTER TABLE projects ADD COLUMN env_file TEXT`);
+  safe(`ALTER TABLE projects ADD COLUMN open_terminal INTEGER DEFAULT 1`);
+  safe(`ALTER TABLE projects ADD COLUMN open_browser INTEGER DEFAULT 1`);
+  safe(`ALTER TABLE projects ADD COLUMN install_deps INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
+  safe(`ALTER TABLE projects ADD COLUMN ide_path TEXT`);
 }
 
 export function closeDb() {
