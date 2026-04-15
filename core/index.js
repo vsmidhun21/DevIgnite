@@ -7,4 +7,7 @@ export { TimeTracker }      from './time-tracker/TimeTracker.js';
 export { EnvManager }       from './env-manager/EnvManager.js';
 export { ProjectDetector }  from './project-detector/ProjectDetector.js';
 export { IdeDetector }      from './ide-detector/IdeDetector.js';
+export { GroupManager }     from './group-manager/GroupManager.js';
+export { PortManager }      from './port-manager/PortManager.js';
+export { GitService }       from './git-service/GitService.js';
 export { getDb, closeDb }   from './db/database.js';

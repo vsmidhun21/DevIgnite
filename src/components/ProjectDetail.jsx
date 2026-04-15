@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import StartWork   from './StartWork';
-import LogViewer   from './LogViewer';
-import TimeDisplay from './TimeDisplay';
-import EnvSelector from './EnvSelector';
+import { useEffect, useState } from 'react';
+import StartWork         from './StartWork';
+import LogViewer         from './LogViewer';
+import ProductivityPanel from './ProductivityPanel';
+import EnvSelector       from './EnvSelector';
 
 const api = window.devignite;
 
@@ -11,11 +11,14 @@ export default function ProjectDetail({
   onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload,
 }) {
   const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
+  const [leftTab, setLeftTab] = useState('info'); // 'info' | 'productivity'
   const isRunning = project.status === 'running' || project.status === 'starting';
 
   const steps = (() => {
     try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; }
   })();
+
+  const git = project.git || {};
 
   useEffect(() => {
     if (!project.path) return;
@@ -27,17 +30,21 @@ export default function ProjectDetail({
     onReload?.();
   };
 
-  const handleStop = async () => {
-    await onStopWork();
-  };
-
   return (
     <div className="project-detail">
-
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="detail-header">
         <div className="detail-title-block">
-          <h2 className="detail-title">{project.name}</h2>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <h2 className="detail-title">{project.name}</h2>
+            {git.hasGit && (
+              <span className="git-branch-badge" title={`${git.branch}${git.isDirty ? ' (uncommitted changes)' : ''}`}>
+                ⎇ {git.branch}{git.isDirty ? '*' : ''}
+                {git.ahead > 0 && <span className="git-ahead"> ↑{git.ahead}</span>}
+                {git.behind > 0 && <span className="git-behind"> ↓{git.behind}</span>}
+              </span>
+            )}
+          </div>
           <div className="detail-path">{project.path}</div>
         </div>
         <div className="header-actions">
@@ -46,126 +53,128 @@ export default function ProjectDetail({
         </div>
       </div>
 
-      {/* ── Action bar ─────────────────────────────────────────────────── */}
+      {/* Action bar */}
       <div className="action-bar">
-        {/* START WORK — the all-in-one button */}
-        <StartWork
-          project={project}
-          liveSecs={liveSecs}
-          onStartWork={onStartWork}
-          onStopWork={onStopWork}
-        />
-
-        {/* Individual buttons */}
+        <StartWork project={project} liveSecs={liveSecs} onStartWork={onStartWork} onStopWork={onStopWork} />
         <div className="action-sep" />
-
-        <button className="action-btn" title="Run server only (no IDE/terminal)"
-          onClick={() => api.work.run(project.id)}
-          disabled={isRunning}>
-          <span className="action-btn-icon run-icon" />
-          Run
+        <button className="action-btn" title="Run only" onClick={() => api.work.run(project.id)} disabled={isRunning}>
+          <span className="action-btn-icon run-icon" /> Run
         </button>
-
         {isRunning && (
-          <button className="action-btn danger" title="Stop server"
-            onClick={() => api.work.stop(project.id)}>
-            <span className="action-btn-icon stop-sq-icon" />
-            Stop
+          <button className="action-btn danger" title="Stop" onClick={() => api.work.stop(project.id)}>
+            <span className="action-btn-icon stop-sq-icon" /> Stop
           </button>
         )}
-
-        <button className="action-btn" title="Open IDE"
-          onClick={() => api.work.openIDE(project.id)}>
-          <span className="action-btn-icon ide-icon" />
-          IDE
+        <button className="action-btn" title="Open IDE" onClick={() => api.work.openIDE(project.id)}>
+          <span className="action-btn-icon ide-icon" /> IDE
         </button>
-
-        <button className="action-btn" title="Open terminal at project path"
-          onClick={() => api.work.openTerminal(project.id)}>
-          <span className="action-btn-icon term-icon" />
-          Terminal
+        <button className="action-btn" title="Open terminal" onClick={() => api.work.openTerminal(project.id)}>
+          <span className="action-btn-icon term-icon" /> Terminal
         </button>
-
         {project.url && (
-          <button className="action-btn" title={`Open ${project.url}`}
-            onClick={() => api.work.openBrowser(project.id)}>
-            <span className="action-btn-icon browser-icon" />
-            Browser
+          <button className="action-btn" title={project.url} onClick={() => api.work.openBrowser(project.id)}>
+            <span className="action-btn-icon browser-icon" /> Browser
           </button>
         )}
       </div>
 
-      {/* ── Body ────────────────────────────────────────────────────────── */}
+      {/* Body */}
       <div className="detail-body">
         <div className="detail-left">
+          {/* Left tab switcher */}
+          <div className="left-tabs">
+            <button className={`left-tab ${leftTab==='info'?'active':''}`} onClick={() => setLeftTab('info')}>Info</button>
+            <button className={`left-tab ${leftTab==='productivity'?'active':''}`} onClick={() => setLeftTab('productivity')}>Productivity</button>
+          </div>
 
-          <section>
-            <div className="section-label">Overview</div>
-            <div className="meta-grid">
-              <MetaCard label="Type"    value={project.type} />
-              <MetaCard label="Status"  value={project.status || 'stopped'} accent={isRunning ? 'running' : ''} />
-              <MetaCard label="Port"    value={project.port ? `:${project.port}` : '—'} />
-              <MetaCard label="IDE"     value={project.ide} />
-              {project.url && <MetaCard label="URL" value={project.url} />}
-              <MetaCard label="PID"     value={project.pid ?? '—'} />
-            </div>
-          </section>
+          {leftTab === 'info' && <>
+            <section>
+              <div className="section-label">Overview</div>
+              <div className="meta-grid">
+                <MetaCard label="Type"   value={project.type} />
+                <MetaCard label="Status" value={project.status || 'stopped'} accent={isRunning ? 'running' : ''} />
+                <MetaCard label="Port"   value={project.port ? `:${project.port}` : '—'} />
+                <MetaCard label="IDE"    value={project.ide} />
+                {project.url && <MetaCard label="URL" value={project.url} />}
+                <MetaCard label="PID"    value={project.pid ?? '—'} />
+              </div>
+            </section>
 
-          {/* Env tabs — only show envs that have actual .env files (+ dev always) */}
-          <section>
-            <div className="section-label">Environment</div>
-            <div className="env-row">
-              {['dev','test','staging','prod'].map(env => {
-                const available = envData.available.includes(env);
-                return (
-                  <button
-                    key={env}
-                    className={`env-pill ${project.active_env === env ? 'active' : ''} ${!available ? 'inactive' : ''}`}
-                    onClick={() => available && onSetEnv(env)}
-                    title={available ? `Switch to ${env}` : `No .env.${env} file found`}
-                    disabled={!available}
-                  >
-                    {env}
-                    {!available && <span className="env-no-file" title="No env file">○</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section>
-            <div className="section-label">Env file</div>
-            <EnvSelector project={project} envFiles={envData.files} onChange={handleEnvFileChange} />
-          </section>
-
-          <section>
-            {steps.length > 0 ? (
-              <>
-                <div className="section-label">Startup steps</div>
-                <div className="steps-display">
-                  {steps.map((s, i) => (
-                    <div key={i} className="step-badge">
-                      <span className="step-badge-num">{i + 1}</span>
-                      <span className="step-badge-label">{s.label || 'Step'}</span>
-                      <span className="step-badge-cmd">$ {s.cmd}</span>
-                      {s.wait && <span className="step-badge-wait">wait</span>}
+            {git.hasGit && (
+              <section>
+                <div className="section-label">Git</div>
+                <div className="git-info-block">
+                  <div className="git-row"><span className="git-key">Branch</span><span className="git-val">{git.branch}{git.isDirty ? ' *' : ''}</span></div>
+                  {git.shortHash && <div className="git-row"><span className="git-key">Commit</span><span className="git-val mono">{git.shortHash}</span></div>}
+                  {git.changedFiles > 0 && <div className="git-row"><span className="git-key">Changed</span><span className="git-val">{git.changedFiles} files</span></div>}
+                  {(git.ahead > 0 || git.behind > 0) && (
+                    <div className="git-row">
+                      <span className="git-key">Remote</span>
+                      <span className="git-val">
+                        {git.ahead > 0 && `↑${git.ahead} ahead`}
+                        {git.ahead > 0 && git.behind > 0 && ' · '}
+                        {git.behind > 0 && `↓${git.behind} behind`}
+                      </span>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="section-label">Command</div>
-                <div className="cmd-display">$ {project.command}</div>
-              </>
+              </section>
             )}
-          </section>
 
-          <section>
-            <div className="section-label">Time tracking</div>
-            <TimeDisplay projectId={project.id} />
-          </section>
+            <section>
+              <div className="section-label">Environment</div>
+              <div className="env-row">
+                {['dev','test','staging','prod'].map(env => {
+                  const available = envData.available.includes(env);
+                  return (
+                    <button
+                      key={env}
+                      className={`env-pill ${project.active_env===env?'active':''} ${!available?'inactive':''}`}
+                      onClick={() => available && onSetEnv(env)}
+                      disabled={!available}
+                      title={available ? `Switch to ${env}` : `No .env.${env} file`}
+                    >
+                      {env}{!available && <span className="env-no-file" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
+            <section>
+              <div className="section-label">Env file</div>
+              <EnvSelector project={project} envFiles={envData.files} onChange={handleEnvFileChange} />
+            </section>
+
+            <section>
+              {steps.length > 0 ? (
+                <>
+                  <div className="section-label">Startup steps</div>
+                  <div className="steps-display">
+                    {steps.map((s, i) => (
+                      <div key={i} className="step-badge">
+                        <span className="step-badge-num">{i + 1}</span>
+                        <span className="step-badge-label">{s.label || 'Step'}</span>
+                        <span className="step-badge-cmd">$ {s.cmd}</span>
+                        {s.wait && <span className="step-badge-wait">wait</span>}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="section-label">Command</div>
+                  <div className="cmd-display">$ {project.command}</div>
+                </>
+              )}
+            </section>
+          </>}
+
+          {leftTab === 'productivity' && (
+            <section>
+              <ProductivityPanel projectId={project.id} />
+            </section>
+          )}
         </div>
 
         <div className="detail-right">

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import fs from 'fs';
+import fs   from 'fs';
 
 let db = null;
 
@@ -68,17 +68,28 @@ function runMigrations(database) {
       env_used         TEXT,
       status           TEXT    NOT NULL DEFAULT 'running'
     );
-    CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id, started_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_sessions_project   ON sessions(project_id, started_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_sessions_date      ON sessions(date(started_at));
+
+    CREATE TABLE IF NOT EXISTS groups (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT    NOT NULL UNIQUE,
+      project_ids TEXT    NOT NULL DEFAULT '[]',
+      color       TEXT    DEFAULT '#1a6ef5',
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   const safe = (sql) => { try { database.exec(sql); } catch {} };
   safe(`ALTER TABLE projects ADD COLUMN url TEXT`);
   safe(`ALTER TABLE projects ADD COLUMN env_file TEXT`);
   safe(`ALTER TABLE projects ADD COLUMN open_terminal INTEGER DEFAULT 1`);
-  safe(`ALTER TABLE projects ADD COLUMN open_browser INTEGER DEFAULT 1`);
-  safe(`ALTER TABLE projects ADD COLUMN install_deps INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE projects ADD COLUMN open_browser  INTEGER DEFAULT 1`);
+  safe(`ALTER TABLE projects ADD COLUMN install_deps  INTEGER DEFAULT 0`);
   safe(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
   safe(`ALTER TABLE projects ADD COLUMN ide_path TEXT`);
+  safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
 }
 
 export function closeDb() {

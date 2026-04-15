@@ -297,7 +297,6 @@ export class ExecutionManager {
     if (type.includes('spring')) return 'mvn install -DskipTests';
     if (type.includes('laravel')) return 'composer install';
     // Auto-detect from project files
-    const path = require('path'), fs = require('fs');
     if (fs.existsSync(path.join(project.path, 'requirements.txt'))) return 'pip install -r requirements.txt';
     if (fs.existsSync(path.join(project.path, 'package.json')))     return 'npm install';
     if (fs.existsSync(path.join(project.path, 'pom.xml')))          return 'mvn install -DskipTests';
