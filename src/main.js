@@ -52,7 +52,7 @@ function initializeApp() {
   });
 
   executionManager = new ExecutionManager(
-    logManager, timeTracker, envManager, processManager, ideDetector,
+    logManager, timeTracker, envManager, processManager, ideDetector, portManager,
     (projectId, status, pid) => mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid }),
     (projectId, sessionId, liveSecs) => mainWindow?.webContents.send(IPC_CHANNELS.TICK_UPDATE, { projectId, sessionId, liveSecs })
   );

@@ -7,12 +7,13 @@ import { PROJECT_STATUS } from '../../shared/constants/index.js';
 const WIN = process.platform === 'win32';
 
 export class ExecutionManager {
-  constructor(logManager, timeTracker, envManager, processManager, ideDetector, onStatus, onTick) {
+  constructor(logManager, timeTracker, envManager, processManager, ideDetector, portManager, onStatus, onTick) {
     this.logManager     = logManager;
     this.timeTracker    = timeTracker;
     this.envManager     = envManager;
     this.processManager = processManager;
     this.ideDetector    = ideDetector;
+    this.portManager    = portManager;
     this.onStatus       = onStatus || (() => {});
     this.onTick         = onTick   || (() => {});
     this._tickTimers    = new Map();
@@ -61,7 +62,7 @@ export class ExecutionManager {
           return { ok: false, error: err.message };
         }
       } else {
-        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId);
+        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId, project);
       }
     }
 
@@ -130,7 +131,7 @@ export class ExecutionManager {
           return { ok: false, error: err.message };
         }
       } else {
-        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId);
+        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId, project);
       }
     }
 
@@ -253,21 +254,60 @@ export class ExecutionManager {
     });
   }
 
-  _runBackground(command, cwd, env, projectId, sessionId) {
+  _runBackground(command, cwd, env, projectId, sessionId, project) {
     const child = spawn(command, [], { cwd, env, shell: true, windowsHide: true });
-    child.stdout.on('data', d => d.toString().split('\n').filter(Boolean).forEach(l => this.logManager.write(projectId, 'info', l)));
-    child.stderr.on('data', d => d.toString().split('\n').filter(Boolean).forEach(l => this.logManager.write(projectId, 'warn', l)));
-    child.on('spawn', () => {
-      this.logManager.write(projectId, 'success', `Started (PID ${child.pid})`);
+    let isStarted = false;
+
+    const markStarted = () => {
+      if (isStarted) return;
+      isStarted = true;
       this.onStatus(projectId, PROJECT_STATUS.RUNNING, child.pid);
+      this.logManager.write(projectId, 'success', `Started (PID ${child.pid})`);
+    };
+
+    const timeout = setTimeout(markStarted, 4000); // Generic 4s fallback
+
+    child.stdout.on('data', d => {
+      d.toString().split('\n').filter(Boolean).forEach(l => {
+        this.logManager.write(projectId, 'info', l);
+        if (!isStarted && this._checkLogForStart(l)) {
+          clearTimeout(timeout);
+          markStarted();
+        }
+      });
     });
+
+    child.stderr.on('data', d => {
+      d.toString().split('\n').filter(Boolean).forEach(l => {
+        this.logManager.write(projectId, 'warn', l);
+        // Error logs can sometimes signal app start in some frameworks, but usually we prefer stdout
+      });
+    });
+
+    if (project.port) {
+      const portCheck = setInterval(async () => {
+        if (isStarted) return clearInterval(portCheck);
+        try {
+          if (await this.portManager.isPortInUse(project.port)) {
+            clearTimeout(timeout);
+            markStarted();
+            clearInterval(portCheck);
+          }
+        } catch {}
+      }, 500);
+      child.on('close', () => clearInterval(portCheck));
+    }
+
     child.on('error', err => {
+      clearTimeout(timeout);
       this.logManager.write(projectId, 'error', `Spawn error: ${err.message}`);
       this.onStatus(projectId, PROJECT_STATUS.ERROR, null);
       this.timeTracker.markError(sessionId);
       this._stopTick(projectId);
     });
+
     child.on('close', code => {
+      clearTimeout(timeout);
       this.logManager.write(projectId, code === 0 ? 'info' : 'warn', `Exited (code ${code})`);
       if (this.processManager.isRunning(projectId)) {
         this.onStatus(projectId, PROJECT_STATUS.STOPPED, null);
@@ -276,7 +316,18 @@ export class ExecutionManager {
         this.logManager.endSession(projectId);
       }
     });
+
     return child;
+  }
+
+  _checkLogForStart(line) {
+    const l = line.toLowerCase();
+    const patterns = [
+      'started', 'tomcat started', // Spring
+      'starting development server', 'system check identified', // Django
+      'compiled', 'running at', 'listening on' // Node/React
+    ];
+    return patterns.some(p => l.includes(p));
   }
 
   _startTick(projectId, sessionId) {
