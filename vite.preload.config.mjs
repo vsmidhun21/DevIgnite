@@ -1,5 +1,5 @@
 // vite.preload.config.mjs — Preload script Vite config
-import { defineConfig } from 'vite';
+import { defineConfig }   from 'vite';
 import { builtinModules } from 'module';
 
 export default defineConfig({

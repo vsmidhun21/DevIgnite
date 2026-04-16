@@ -3,6 +3,7 @@ import StartWork         from './StartWork';
 import LogViewer         from './LogViewer';
 import ProductivityPanel from './ProductivityPanel';
 import EnvSelector       from './EnvSelector';
+import { GitBranch, Terminal, Globe, Code2, Play, Square } from 'lucide-react';
 
 const api = window.devignite;
 
@@ -10,38 +11,35 @@ export default function ProjectDetail({
   project, logs, liveSecs,
   onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload,
 }) {
-  const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
-  const [leftTab, setLeftTab] = useState('info'); // 'info' | 'productivity'
-  const isRunning = project.status === 'running' || project.status === 'starting';
+  const [envData,  setEnvData]  = useState({ available:['dev'], files:[] });
+  const [leftTab,  setLeftTab]  = useState('info');
+  const isRunning = project.status==='running'||project.status==='starting';
 
-  const steps = (() => {
-    try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; }
-  })();
-
-  const git = project.git || {};
+  const steps = (() => { try { return JSON.parse(project.startup_steps||'[]'); } catch { return []; } })();
+  const git = project.git||{};
 
   useEffect(() => {
     if (!project.path) return;
-    api.env.detect(project.path).then(setEnvData).catch(() => {});
+    api.env.detect(project.path).then(setEnvData).catch(()=>{});
   }, [project.path]);
 
-  const handleEnvFileChange = async (filename) => {
-    await api.projects.update(project.id, { env_file: filename || null });
+  const changeEnvFile = async (f) => {
+    await api.projects.update(project.id, {env_file:f||null});
     onReload?.();
   };
 
   return (
     <div className="project-detail">
-      {/* Header */}
       <div className="detail-header">
         <div className="detail-title-block">
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
             <h2 className="detail-title">{project.name}</h2>
-            {git.hasGit && (
-              <span className="git-branch-badge" title={`${git.branch}${git.isDirty ? ' (uncommitted changes)' : ''}`}>
-                ⎇ {git.branch}{git.isDirty ? '*' : ''}
-                {git.ahead > 0 && <span className="git-ahead"> ↑{git.ahead}</span>}
-                {git.behind > 0 && <span className="git-behind"> ↓{git.behind}</span>}
+            {git.hasGit && git.branch && (
+              <span className="git-branch-badge">
+                <GitBranch size={10} strokeWidth={2}/>
+                {git.branch}{git.isDirty?'*':''}
+                {git.ahead>0&&<span className="git-ahead"> +{git.ahead}</span>}
+                {git.behind>0&&<span className="git-behind"> -{git.behind}</span>}
               </span>
             )}
           </div>
@@ -53,50 +51,47 @@ export default function ProjectDetail({
         </div>
       </div>
 
-      {/* Action bar */}
       <div className="action-bar">
         <StartWork project={project} liveSecs={liveSecs} onStartWork={onStartWork} onStopWork={onStopWork} />
         <div className="action-sep" />
-        <button className="action-btn" title="Run only" onClick={() => api.work.run(project.id)} disabled={isRunning}>
-          <span className="action-btn-icon run-icon" /> Run
+        <button className="action-btn" onClick={()=>api.work.run(project.id)} disabled={isRunning} title="Run only">
+          <Play size={11} strokeWidth={2}/> Run
         </button>
         {isRunning && (
-          <button className="action-btn danger" title="Stop" onClick={() => api.work.stop(project.id)}>
-            <span className="action-btn-icon stop-sq-icon" /> Stop
+          <button className="action-btn danger" onClick={()=>api.work.stop(project.id)} title="Stop">
+            <Square size={11} strokeWidth={2}/> Stop
           </button>
         )}
-        <button className="action-btn" title="Open IDE" onClick={() => api.work.openIDE(project.id)}>
-          <span className="action-btn-icon ide-icon" /> IDE
+        <button className="action-btn" onClick={()=>api.work.openIDE(project.id)} title="Open IDE">
+          <Code2 size={11} strokeWidth={2}/> IDE
         </button>
-        <button className="action-btn" title="Open terminal" onClick={() => api.work.openTerminal(project.id)}>
-          <span className="action-btn-icon term-icon" /> Terminal
+        <button className="action-btn" onClick={()=>api.work.openTerminal(project.id)} title="Terminal">
+          <Terminal size={11} strokeWidth={2}/> Terminal
         </button>
         {project.url && (
-          <button className="action-btn" title={project.url} onClick={() => api.work.openBrowser(project.id)}>
-            <span className="action-btn-icon browser-icon" /> Browser
+          <button className="action-btn" onClick={()=>api.work.openBrowser(project.id)} title={project.url}>
+            <Globe size={11} strokeWidth={2}/> Browser
           </button>
         )}
       </div>
 
-      {/* Body */}
       <div className="detail-body">
         <div className="detail-left">
-          {/* Left tab switcher */}
           <div className="left-tabs">
-            <button className={`left-tab ${leftTab==='info'?'active':''}`} onClick={() => setLeftTab('info')}>Info</button>
-            <button className={`left-tab ${leftTab==='productivity'?'active':''}`} onClick={() => setLeftTab('productivity')}>Productivity</button>
+            <button className={`left-tab ${leftTab==='info'?'active':''}`} onClick={()=>setLeftTab('info')}>Info</button>
+            <button className={`left-tab ${leftTab==='productivity'?'active':''}`} onClick={()=>setLeftTab('productivity')}>Stats</button>
           </div>
 
-          {leftTab === 'info' && <>
+          {leftTab==='info' && <>
             <section>
               <div className="section-label">Overview</div>
               <div className="meta-grid">
                 <MetaCard label="Type"   value={project.type} />
-                <MetaCard label="Status" value={project.status || 'stopped'} accent={isRunning ? 'running' : ''} />
-                <MetaCard label="Port"   value={project.port ? `:${project.port}` : '—'} />
+                <MetaCard label="Status" value={project.status||'stopped'} accent={isRunning?'running':''} />
+                <MetaCard label="Port"   value={project.port?`:${project.port}`:'—'} />
                 <MetaCard label="IDE"    value={project.ide} />
                 {project.url && <MetaCard label="URL" value={project.url} />}
-                <MetaCard label="PID"    value={project.pid ?? '—'} />
+                <MetaCard label="PID"    value={project.pid??'—'} />
               </div>
             </section>
 
@@ -104,19 +99,9 @@ export default function ProjectDetail({
               <section>
                 <div className="section-label">Git</div>
                 <div className="git-info-block">
-                  <div className="git-row"><span className="git-key">Branch</span><span className="git-val">{git.branch}{git.isDirty ? ' *' : ''}</span></div>
-                  {git.shortHash && <div className="git-row"><span className="git-key">Commit</span><span className="git-val mono">{git.shortHash}</span></div>}
-                  {git.changedFiles > 0 && <div className="git-row"><span className="git-key">Changed</span><span className="git-val">{git.changedFiles} files</span></div>}
-                  {(git.ahead > 0 || git.behind > 0) && (
-                    <div className="git-row">
-                      <span className="git-key">Remote</span>
-                      <span className="git-val">
-                        {git.ahead > 0 && `↑${git.ahead} ahead`}
-                        {git.ahead > 0 && git.behind > 0 && ' · '}
-                        {git.behind > 0 && `↓${git.behind} behind`}
-                      </span>
-                    </div>
-                  )}
+                  <div className="git-row"><span className="git-key">Branch</span><span className="git-val">{git.branch}{git.isDirty?' *':''}</span></div>
+                  {git.shortHash&&<div className="git-row"><span className="git-key">Commit</span><span className="git-val mono">{git.shortHash}</span></div>}
+                  {git.changedFiles>0&&<div className="git-row"><span className="git-key">Changed</span><span className="git-val">{git.changedFiles} files</span></div>}
                 </div>
               </section>
             )}
@@ -125,16 +110,13 @@ export default function ProjectDetail({
               <div className="section-label">Environment</div>
               <div className="env-row">
                 {['dev','test','staging','prod'].map(env => {
-                  const available = envData.available.includes(env);
+                  const ok = envData.available.includes(env);
                   return (
-                    <button
-                      key={env}
-                      className={`env-pill ${project.active_env===env?'active':''} ${!available?'inactive':''}`}
-                      onClick={() => available && onSetEnv(env)}
-                      disabled={!available}
-                      title={available ? `Switch to ${env}` : `No .env.${env} file`}
-                    >
-                      {env}{!available && <span className="env-no-file" />}
+                    <button key={env}
+                      className={`env-pill ${project.active_env===env?'active':''} ${!ok?'inactive':''}`}
+                      onClick={()=>ok&&onSetEnv(env)} disabled={!ok}
+                      title={ok?`Switch to ${env}`:`No .env.${env}`}>
+                      {env}{!ok&&<span className="env-no-file"/>}
                     </button>
                   );
                 })}
@@ -143,20 +125,20 @@ export default function ProjectDetail({
 
             <section>
               <div className="section-label">Env file</div>
-              <EnvSelector project={project} envFiles={envData.files} onChange={handleEnvFileChange} />
+              <EnvSelector project={project} envFiles={envData.files} onChange={changeEnvFile}/>
             </section>
 
             <section>
-              {steps.length > 0 ? (
+              {steps.length>0 ? (
                 <>
                   <div className="section-label">Startup steps</div>
                   <div className="steps-display">
-                    {steps.map((s, i) => (
+                    {steps.map((s,i)=>(
                       <div key={i} className="step-badge">
-                        <span className="step-badge-num">{i + 1}</span>
-                        <span className="step-badge-label">{s.label || 'Step'}</span>
+                        <span className="step-badge-num">{i+1}</span>
+                        <span className="step-badge-label">{s.label||'Step'}</span>
                         <span className="step-badge-cmd">$ {s.cmd}</span>
-                        {s.wait && <span className="step-badge-wait">wait</span>}
+                        {s.wait&&<span className="step-badge-wait">wait</span>}
                       </div>
                     ))}
                   </div>
@@ -170,16 +152,14 @@ export default function ProjectDetail({
             </section>
           </>}
 
-          {leftTab === 'productivity' && (
-            <section>
-              <ProductivityPanel projectId={project.id} />
-            </section>
+          {leftTab==='productivity' && (
+            <section><ProductivityPanel projectId={project.id}/></section>
           )}
         </div>
 
         <div className="detail-right">
           <div className="section-label">Logs</div>
-          <LogViewer projectId={project.id} streamedLogs={logs} />
+          <LogViewer projectId={project.id} streamedLogs={logs}/>
         </div>
       </div>
     </div>
@@ -190,7 +170,7 @@ function MetaCard({ label, value, accent }) {
   return (
     <div className="meta-card">
       <div className="meta-label">{label}</div>
-      <div className={`meta-value ${accent||''}`}>{value ?? '—'}</div>
+      <div className={`meta-value ${accent||''}`}>{value??'—'}</div>
     </div>
   );
 }
