@@ -1,27 +1,27 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
-import path   from 'path';
+import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import squirrelStartup from 'electron-squirrel-startup';
 if (squirrelStartup) app.quit();
 
-import { ProjectManager }   from '../core/project-manager/ProjectManager.js';
-import { ConfigManager }    from '../core/config-manager/ConfigManager.js';
-import { ProcessManager }   from '../core/process-manager/ProcessManager.js';
+import { ProjectManager } from '../core/project-manager/ProjectManager.js';
+import { ConfigManager } from '../core/config-manager/ConfigManager.js';
+import { ProcessManager } from '../core/process-manager/ProcessManager.js';
 import { ExecutionManager } from '../core/execution-manager/ExecutionManager.js';
-import { LogManager }       from '../core/log-manager/LogManager.js';
-import { TimeTracker }      from '../core/time-tracker/TimeTracker.js';
-import { EnvManager }       from '../core/env-manager/EnvManager.js';
-import { ProjectDetector }  from '../core/project-detector/ProjectDetector.js';
-import { IdeDetector }      from '../core/ide-detector/IdeDetector.js';
-import { GroupManager }     from '../core/group-manager/GroupManager.js';
-import { PortManager }      from '../core/port-manager/PortManager.js';
-import { GitService }       from '../core/git-service/GitService.js';
-import { getDb, closeDb }   from '../core/db/database.js';
-import { IPC_CHANNELS }     from '../shared/constants/index.js';
+import { LogManager } from '../core/log-manager/LogManager.js';
+import { TimeTracker } from '../core/time-tracker/TimeTracker.js';
+import { EnvManager } from '../core/env-manager/EnvManager.js';
+import { ProjectDetector } from '../core/project-detector/ProjectDetector.js';
+import { IdeDetector } from '../core/ide-detector/IdeDetector.js';
+import { GroupManager } from '../core/group-manager/GroupManager.js';
+import { PortManager } from '../core/port-manager/PortManager.js';
+import { GitService } from '../core/git-service/GitService.js';
+import { getDb, closeDb } from '../core/db/database.js';
+import { IPC_CHANNELS } from '../shared/constants/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 let mainWindow, dbPath, logsDir;
 let projectManager, configManager, timeTracker, logManager, envManager;
@@ -33,19 +33,19 @@ const activeSessions = new Map();
 const gitCache = new Map();
 
 function initializeApp() {
-  const userData  = app.getPath('userData');
-  dbPath  = path.join(userData, 'devignite.sqlite');
+  const userData = app.getPath('userData');
+  dbPath = path.join(userData, 'devignite.sqlite');
   logsDir = path.join(userData, 'logs');
 
-  projectManager  = new ProjectManager(dbPath);
-  configManager   = new ConfigManager(dbPath);
-  timeTracker     = new TimeTracker(dbPath);
-  envManager      = new EnvManager();
+  projectManager = new ProjectManager(dbPath);
+  configManager = new ConfigManager(dbPath);
+  timeTracker = new TimeTracker(dbPath);
+  envManager = new EnvManager();
   projectDetector = new ProjectDetector();
-  ideDetector     = new IdeDetector();
-  groupManager    = new GroupManager(dbPath);
-  portManager     = new PortManager();
-  gitService      = new GitService();
+  ideDetector = new IdeDetector();
+  groupManager = new GroupManager(dbPath);
+  portManager = new PortManager();
+  gitService = new GitService();
 
   logManager = new LogManager(logsDir, (projectId, level, message, ts) => {
     mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, { projectId, level, message, ts });
@@ -98,6 +98,8 @@ ipcMain.on('window:maximize', () => {
 });
 ipcMain.on('window:close', () => mainWindow?.close());
 
+import { shell } from 'electron';
+
 // ── Menu ──────────────────────────────────────────────────────────────────────
 ipcMain.on('menu:popup', (event, menuName) => {
   const send = (channel) => mainWindow?.webContents.send(channel);
@@ -123,9 +125,7 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'Toggle Logs', click: () => send('menu:toggle-logs') },
       { label: 'Refresh Projects', click: () => send('menu:refresh-projects') },
       { type: 'separator' },
-      { label: 'Toggle Fullscreen', click: () => {
-        if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen());
-      }}
+      { label: 'Toggle Fullscreen', click: () => send('menu:toggle-fullscreen') }
     ],
     Run: [
       { label: 'Start Work', click: () => send('menu:start-work') },
@@ -141,9 +141,24 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { type: 'separator' },
       { label: 'Clear Logs', click: () => send('menu:clear-logs') }
     ],
+    Window: [
+      { label: 'Minimize', click: () => mainWindow?.minimize() },
+      {
+        label: 'Maximize / Restore', click: () => {
+          if (!mainWindow) return;
+          if (mainWindow.isMaximized()) mainWindow.unmaximize();
+          else mainWindow.maximize();
+        }
+      },
+      { type: 'separator' },
+      { label: 'Close', click: () => mainWindow?.close() }
+    ],
     Help: [
       { label: 'About', click: () => send('menu:about') },
-      { label: 'Open Logs Folder', click: () => send('menu:open-logs-folder') }
+      { label: 'Open Logs Folder', click: () => send('menu:open-logs-folder') },
+      { type: 'separator' },
+      { label: 'Report Issue', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite/issues') },
+      { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') }
     ]
   };
 
@@ -163,17 +178,17 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () => {
       : (() => { const info = gitService.getInfo(p.path); gitCache.set(p.path, { info, ts: Date.now() }); return info; })();
     return {
       ...p,
-      status:     processManager.getStatus(p.id),
-      pid:        processManager.getInfo(p.id)?.pid      ?? null,
-      uptimeMs:   processManager.getInfo(p.id)?.uptimeMs ?? 0,
-      sessionId:  activeSessions.get(p.id) ?? null,
-      todaySecs:  timeTracker.getTodayTotal(p.id),
-      git:        gitInfo,
+      status: processManager.getStatus(p.id),
+      pid: processManager.getInfo(p.id)?.pid ?? null,
+      uptimeMs: processManager.getInfo(p.id)?.uptimeMs ?? 0,
+      sessionId: activeSessions.get(p.id) ?? null,
+      todaySecs: timeTracker.getTodayTotal(p.id),
+      git: gitInfo,
     };
   });
 });
-ipcMain.handle(IPC_CHANNELS.PROJECT_GET,    (_, id)           => projectManager.getById(id));
-ipcMain.handle(IPC_CHANNELS.PROJECT_ADD,    (_, data)         => projectManager.add(data));
+ipcMain.handle(IPC_CHANNELS.PROJECT_GET, (_, id) => projectManager.getById(id));
+ipcMain.handle(IPC_CHANNELS.PROJECT_ADD, (_, data) => projectManager.add(data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE, (_, { id, data }) => projectManager.update(id, data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
   if (processManager.isRunning(id)) {
@@ -183,8 +198,8 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
   activeSessions.delete(id);
   return projectManager.delete(id);
 });
-ipcMain.handle(IPC_CHANNELS.DETECT_PROJECT,  (_, { projectPath }) => projectDetector.detect(projectPath));
-ipcMain.handle(IPC_CHANNELS.VALIDATE_PROJECT,(_, projectId) => {
+ipcMain.handle(IPC_CHANNELS.DETECT_PROJECT, (_, { projectPath }) => projectDetector.detect(projectPath));
+ipcMain.handle(IPC_CHANNELS.VALIDATE_PROJECT, (_, projectId) => {
   const p = projectManager.getById(projectId);
   return p ? executionManager.validate(p) : { valid: false, errors: [{ field: 'id', message: 'Not found' }] };
 });
@@ -218,16 +233,16 @@ async function _doStart(projectId) {
   return result;
 }
 
-ipcMain.handle(IPC_CHANNELS.START_WORK,    async (_, projectId) => _doStart(projectId));
-ipcMain.handle(IPC_CHANNELS.STOP_WORK,     (_, projectId) => {
+ipcMain.handle(IPC_CHANNELS.START_WORK, async (_, projectId) => _doStart(projectId));
+ipcMain.handle(IPC_CHANNELS.STOP_WORK, (_, projectId) => {
   const sid = activeSessions.get(projectId);
-  const p   = projectManager.getById(projectId);
+  const p = projectManager.getById(projectId);
   if (!p) return { ok: false, error: 'Not found' };
   const result = executionManager.stopWork(p, sid || '');
   activeSessions.delete(projectId);
   return result;
 });
-ipcMain.handle(IPC_CHANNELS.RUN_ONLY,      async (_, projectId) => {
+ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
   const p = projectManager.getById(projectId);
   if (!p) return { ok: false, error: 'Not found' };
   if (processManager.isRunning(projectId)) return { ok: false, error: 'Already running' };
@@ -237,17 +252,17 @@ ipcMain.handle(IPC_CHANNELS.RUN_ONLY,      async (_, projectId) => {
   if (!result.ok) activeSessions.delete(projectId);
   return result;
 });
-ipcMain.handle(IPC_CHANNELS.OPEN_IDE,      (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openIDE(p); return { ok: !!p }; });
+ipcMain.handle(IPC_CHANNELS.OPEN_IDE, (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openIDE(p); return { ok: !!p }; });
 ipcMain.handle(IPC_CHANNELS.OPEN_TERMINAL, (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openTerminal(p.path, p.id); return { ok: !!p }; });
-ipcMain.handle(IPC_CHANNELS.OPEN_BROWSER,  (_, id) => { const p = projectManager.getById(id); if (p && p.url) executionManager.openBrowser(p.url, p.id); return { ok: !!(p?.url) }; });
+ipcMain.handle(IPC_CHANNELS.OPEN_BROWSER, (_, id) => { const p = projectManager.getById(id); if (p && p.url) executionManager.openBrowser(p.url, p.id); return { ok: !!(p?.url) }; });
 
 // ── Groups ────────────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.GROUP_LIST,   ()              => groupManager.listAll());
-ipcMain.handle(IPC_CHANNELS.GROUP_GET,    (_, id)         => groupManager.getById(id));
-ipcMain.handle(IPC_CHANNELS.GROUP_ADD,    (_, data)       => groupManager.add(data));
+ipcMain.handle(IPC_CHANNELS.GROUP_LIST, () => groupManager.listAll());
+ipcMain.handle(IPC_CHANNELS.GROUP_GET, (_, id) => groupManager.getById(id));
+ipcMain.handle(IPC_CHANNELS.GROUP_ADD, (_, data) => groupManager.add(data));
 ipcMain.handle(IPC_CHANNELS.GROUP_UPDATE, (_, { id, data }) => groupManager.update(id, data));
-ipcMain.handle(IPC_CHANNELS.GROUP_DELETE, (_, id)         => groupManager.delete(id));
-ipcMain.handle(IPC_CHANNELS.GROUP_ADD_PROJECT,    (_, { groupId, projectId }) => groupManager.addProject(groupId, projectId));
+ipcMain.handle(IPC_CHANNELS.GROUP_DELETE, (_, id) => groupManager.delete(id));
+ipcMain.handle(IPC_CHANNELS.GROUP_ADD_PROJECT, (_, { groupId, projectId }) => groupManager.addProject(groupId, projectId));
 ipcMain.handle(IPC_CHANNELS.GROUP_REMOVE_PROJECT, (_, { groupId, projectId }) => groupManager.removeProject(groupId, projectId));
 
 ipcMain.handle(IPC_CHANNELS.GROUP_START, async (_, groupId) => {
@@ -267,7 +282,7 @@ ipcMain.handle(IPC_CHANNELS.GROUP_STOP, (_, groupId) => {
   if (!group) return { ok: false, error: 'Group not found' };
   const results = group.projectIds.map(projectId => {
     const sid = activeSessions.get(projectId);
-    const p   = projectManager.getById(projectId);
+    const p = projectManager.getById(projectId);
     if (!p || !processManager.isRunning(projectId)) return { projectId, ok: false, reason: 'not running' };
     const result = executionManager.stopWork(p, sid || '');
     activeSessions.delete(projectId);
@@ -280,11 +295,11 @@ ipcMain.handle(IPC_CHANNELS.GROUP_STOP, (_, groupId) => {
 ipcMain.handle(IPC_CHANNELS.PORT_CHECK, async (_, { port, resolution }) =>
   portManager.checkBeforeLaunch(port, resolution || 'prompt')
 );
-ipcMain.handle(IPC_CHANNELS.PORT_KILL,     (_, { port }) => portManager.killProcessOnPort(port));
-ipcMain.handle(IPC_CHANNELS.PORT_SNAPSHOT, ()            => portManager.getListeningPorts());
+ipcMain.handle(IPC_CHANNELS.PORT_KILL, (_, { port }) => portManager.killProcessOnPort(port));
+ipcMain.handle(IPC_CHANNELS.PORT_SNAPSHOT, () => portManager.getListeningPorts());
 
 // ── Git ───────────────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.GIT_INFO,       (_, { projectPath }) => {
+ipcMain.handle(IPC_CHANNELS.GIT_INFO, (_, { projectPath }) => {
   const info = gitService.getInfo(projectPath);
   gitCache.set(projectPath, { info, ts: Date.now() });
   return info;
@@ -292,8 +307,8 @@ ipcMain.handle(IPC_CHANNELS.GIT_INFO,       (_, { projectPath }) => {
 ipcMain.handle(IPC_CHANNELS.GIT_INFO_BATCH, (_, { paths }) => gitService.getBatch(paths));
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.LOG_READ,  (_, { projectId, which }) => logManager.readParsed(projectId, which || 'current'));
-ipcMain.handle(IPC_CHANNELS.LOG_META,  (_, projectId)            => logManager.getMeta(projectId));
+ipcMain.handle(IPC_CHANNELS.LOG_READ, (_, { projectId, which }) => logManager.readParsed(projectId, which || 'current'));
+ipcMain.handle(IPC_CHANNELS.LOG_META, (_, projectId) => logManager.getMeta(projectId));
 ipcMain.handle(IPC_CHANNELS.LOG_CLEAR, (_, projectId) => {
   logManager.clear(projectId);
   getDb(dbPath).prepare('DELETE FROM logs WHERE project_id=?').run(projectId);
@@ -301,21 +316,21 @@ ipcMain.handle(IPC_CHANNELS.LOG_CLEAR, (_, projectId) => {
 });
 
 // ── Productivity ──────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.SESSION_HISTORY,  (_, { projectId, limit }) => timeTracker.getHistory(projectId, limit || 20));
-ipcMain.handle(IPC_CHANNELS.SESSION_TODAY,    (_, projectId) => ({ seconds: timeTracker.getTodayTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getTodayTotal(projectId)) }));
+ipcMain.handle(IPC_CHANNELS.SESSION_HISTORY, (_, { projectId, limit }) => timeTracker.getHistory(projectId, limit || 20));
+ipcMain.handle(IPC_CHANNELS.SESSION_TODAY, (_, projectId) => ({ seconds: timeTracker.getTodayTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getTodayTotal(projectId)) }));
 ipcMain.handle(IPC_CHANNELS.SESSION_ALL_TIME, (_, projectId) => ({ seconds: timeTracker.getAllTimeTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getAllTimeTotal(projectId)) }));
 ipcMain.handle(IPC_CHANNELS.PRODUCTIVITY_STATS, (_, { projectId }) => timeTracker.getProductivityStats(projectId || null));
 
 // ── Env / Config / IDE ────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.ENV_DETECT, (_, { projectPath }) => envManager.detectEnvFiles(projectPath));
-ipcMain.handle(IPC_CHANNELS.ENV_PARSE,  (_, { projectPath, filename }) => envManager.parseEnvFile(path.join(projectPath, filename)));
+ipcMain.handle(IPC_CHANNELS.ENV_PARSE, (_, { projectPath, filename }) => envManager.parseEnvFile(path.join(projectPath, filename)));
 ipcMain.handle(IPC_CHANNELS.CONFIG_GET, (_, { projectId, env }) => configManager.getMergedConfig(projectManager.getById(projectId), env));
 ipcMain.handle(IPC_CHANNELS.CONFIG_SET, (_, { projectId, env, overrides }) => { configManager.setEnvConfig(projectId, env, overrides); return { ok: true }; });
-ipcMain.handle(IPC_CHANNELS.IDE_LIST,   () => ideDetector.detect());
+ipcMain.handle(IPC_CHANNELS.IDE_LIST, () => ideDetector.detect());
 ipcMain.handle(IPC_CHANNELS.IDE_BROWSE, async () => {
   const r = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'], title: 'Select IDE executable',
-    filters: [{ name: 'Executables', extensions: process.platform === 'win32' ? ['exe','cmd','bat'] : [] }, { name: 'All', extensions: ['*'] }],
+    filters: [{ name: 'Executables', extensions: process.platform === 'win32' ? ['exe', 'cmd', 'bat'] : [] }, { name: 'All', extensions: ['*'] }],
   });
   return r.canceled ? null : r.filePaths[0];
 });

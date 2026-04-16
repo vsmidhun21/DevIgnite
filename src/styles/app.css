@@ -1980,9 +1980,10 @@ body {
 
 /* ── Workspace checklist ──────────────────────────────────────────────────────── */
 .color-picker {
+  margin-left: 5px;
   display: flex;
   gap: 7px;
-  flex-wrap: wrap
+  flex-wrap: wrap;
 }
 
 .color-dot {

@@ -103,3 +103,23 @@ contextBridge.exposeInMainWorld('devignite', {
     portConflict: (cb) => on(CH.PORT_CONFLICT, cb),
   },
 });
+
+contextBridge.exposeInMainWorld('api', {
+  onMenu: (callback) => {
+    ipcRenderer.on('menu:new-project', () => callback('new-project'));
+    ipcRenderer.on('menu:new-workspace', () => callback('new-workspace'));
+    ipcRenderer.on('menu:edit-project', () => callback('edit-project'));
+    ipcRenderer.on('menu:delete-project', () => callback('delete-project'));
+    ipcRenderer.on('menu:start-work', () => callback('start-work'));
+    ipcRenderer.on('menu:stop-work', () => callback('stop-work'));
+    ipcRenderer.on('menu:start-workspace', () => callback('start-workspace'));
+    ipcRenderer.on('menu:install-deps', () => callback('install-deps'));
+    ipcRenderer.on('menu:toggle-sidebar', () => callback('toggle-sidebar'));
+    ipcRenderer.on('menu:toggle-logs', () => callback('toggle-logs'));
+    ipcRenderer.on('menu:refresh', () => callback('refresh'));
+    ipcRenderer.on('menu:kill-port', () => callback('kill-port'));
+    ipcRenderer.on('menu:open-folder', () => callback('open-folder'));
+    ipcRenderer.on('menu:open-ide', () => callback('open-ide'));
+    ipcRenderer.on('menu:clear-logs', () => callback('clear-logs'));
+  }
+});
