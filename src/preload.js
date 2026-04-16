@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('devignite', {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close:    () => ipcRenderer.send('window:close'),
+    popupMenu: (name) => ipcRenderer.send('menu:popup', name),
+    onMenuAction: (channel, cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on(`menu:${channel}`, h);
+      return () => ipcRenderer.removeListener(`menu:${channel}`, h);
+    }
   },
   projects: {
     list:     ()           => ipcRenderer.invoke(CH.PROJECT_LIST),

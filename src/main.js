@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import path   from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
@@ -97,6 +97,60 @@ ipcMain.on('window:maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.on('window:close', () => mainWindow?.close());
+
+// ── Menu ──────────────────────────────────────────────────────────────────────
+ipcMain.on('menu:popup', (event, menuName) => {
+  const send = (channel) => mainWindow?.webContents.send(channel);
+  const menus = {
+    File: [
+      { label: 'New Project', click: () => send('menu:new-project') },
+      { label: 'New Workspace', click: () => send('menu:new-workspace') },
+      { type: 'separator' },
+      { label: 'Import Projects', click: () => send('menu:import-projects') },
+      { label: 'Export Projects', click: () => send('menu:export-projects') },
+      { type: 'separator' },
+      { label: 'Exit', click: () => app.quit() }
+    ],
+    Edit: [
+      { label: 'Edit Project', click: () => send('menu:edit-project') },
+      { label: 'Delete Project', click: () => send('menu:delete-project') },
+      { label: 'Duplicate Project', click: () => send('menu:duplicate-project') },
+      { type: 'separator' },
+      { label: 'Open Settings', click: () => send('menu:open-settings') }
+    ],
+    View: [
+      { label: 'Toggle Sidebar', click: () => send('menu:toggle-sidebar') },
+      { label: 'Toggle Logs', click: () => send('menu:toggle-logs') },
+      { label: 'Refresh Projects', click: () => send('menu:refresh-projects') },
+      { type: 'separator' },
+      { label: 'Toggle Fullscreen', click: () => {
+        if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      }}
+    ],
+    Run: [
+      { label: 'Start Work', click: () => send('menu:start-work') },
+      { label: 'Stop Work', click: () => send('menu:stop-work') },
+      { label: 'Start Workspace', click: () => send('menu:start-workspace') },
+      { type: 'separator' },
+      { label: 'Install Dependencies', click: () => send('menu:install-dependencies') }
+    ],
+    Tools: [
+      { label: 'Kill Port', click: () => send('menu:kill-port') },
+      { label: 'Open Folder', click: () => send('menu:open-folder') },
+      { label: 'Open in IDE', click: () => send('menu:open-ide') },
+      { type: 'separator' },
+      { label: 'Clear Logs', click: () => send('menu:clear-logs') }
+    ],
+    Help: [
+      { label: 'About', click: () => send('menu:about') },
+      { label: 'Open Logs Folder', click: () => send('menu:open-logs-folder') }
+    ]
+  };
+
+  if (menus[menuName]) {
+    Menu.buildFromTemplate(menus[menuName]).popup({ window: mainWindow });
+  }
+});
 
 
 // ── Projects ──────────────────────────────────────────────────────────────────

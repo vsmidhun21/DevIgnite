@@ -15,8 +15,9 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
   const [activeMenu, setActiveMenu] = useState(null);
 
   const handleMenuClick = (menu) => {
-    setActiveMenu(activeMenu === menu ? null : menu);
-    // Real menu logic would open a dropdown here
+    setActiveMenu(menu);
+    window.devignite?.window?.popupMenu(menu);
+    setTimeout(() => setActiveMenu(null), 200); // Reset visual state after a short delay since native menu blocks thread
   };
 
   const closeMenu = () => setActiveMenu(null);
