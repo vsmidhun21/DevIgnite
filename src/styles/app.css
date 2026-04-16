@@ -178,80 +178,110 @@ body {
 }
 
 .app-header {
-  height: var(--header-h);
+  height: 38px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  justify-content: space-between;
+  padding: 0;
   background: var(--bg1);
   border-bottom: 1px solid var(--b0);
   flex-shrink: 0;
-  gap: 8px;
   -webkit-app-region: drag;
-  user-select: none
+  user-select: none;
 }
 
 .app-header * {
-  -webkit-app-region: no-drag
+  -webkit-app-region: no-drag;
 }
 
 .app-header-left {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0
+  height: 100%;
 }
 
 .app-header-logo {
   display: flex;
   align-items: center;
-  flex-shrink: 0
+  padding: 0 12px;
+  height: 100%;
 }
 
-.app-header-name {
-  font-size: 12px;
-  font-weight: 600;
+.app-menu {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--t1);
+  font-family: inherit;
+  font-size: 11.5px;
+  padding: 0 10px;
+  height: 100%;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.menu-btn:hover {
+  background: var(--b0);
   color: var(--t0);
-  letter-spacing: .03em;
-  flex-shrink: 0
 }
 
-.app-header-sep {
-  color: var(--t2);
-  font-size: 11px;
-  flex-shrink: 0
+.menu-btn.active {
+  background: var(--b1);
+  color: var(--t0);
 }
 
-.app-header-ctx {
-  font-size: 11px;
+.app-header-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 11.5px;
   color: var(--t1);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .app-header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0
+  height: 100%;
+}
+
+.app-header-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 12px;
 }
 
 .app-header-timer {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 10px;
   color: var(--accent);
-  font-variant-numeric: tabular-nums
+  font-variant-numeric: tabular-nums;
+  background: var(--accent-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .app-header-running {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  color: var(--green)
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--green);
+  background: var(--green-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .header-run-dot {
@@ -259,7 +289,35 @@ body {
   height: 6px;
   border-radius: 50%;
   background: var(--green);
-  animation: pulse 1.4s ease-in-out infinite
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.win-btn {
+  background: transparent;
+  border: none;
+  width: 46px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t1);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.win-btn:hover {
+  background: var(--b0);
+}
+
+.win-btn.close:hover {
+  background: #e81123;
+  color: #fff;
 }
 
 .app-body {

@@ -1,4 +1,5 @@
-import { Activity, Zap } from 'lucide-react';
+import { Activity, Minus, Square, X } from 'lucide-react';
+import { useState } from 'react';
 
 const fmt = (s) => {
   if (!s && s !== 0) return null;
@@ -10,9 +11,18 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
   const contextName = selectedGroup?.name || selectedProject?.name || null;
   const isRunning = selectedProject?.status === 'running';
   const timer = isRunning && liveSecs != null ? fmt(liveSecs) : null;
+  
+  const [activeMenu, setActiveMenu] = useState(null);
+
+  const handleMenuClick = (menu) => {
+    setActiveMenu(activeMenu === menu ? null : menu);
+    // Real menu logic would open a dropdown here
+  };
+
+  const closeMenu = () => setActiveMenu(null);
 
   return (
-    <header className="app-header">
+    <header className="app-header" onClick={closeMenu}>
       <div className="app-header-left">
         <div className="app-header-logo">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -20,28 +30,55 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
               fill="var(--ignite)" stroke="var(--ignite)" strokeWidth="1.5" strokeLinejoin="round"/>
           </svg>
         </div>
-        <span className="app-header-name">DevIgnite</span>
-        {contextName && (
-          <>
-            <span className="app-header-sep">›</span>
-            <span className="app-header-ctx">{contextName}</span>
-          </>
+        
+        <nav className="app-menu">
+          {['File', 'Edit', 'View', 'Window', 'Help'].map(menu => (
+            <button 
+              key={menu} 
+              className={`menu-btn ${activeMenu === menu ? 'active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); handleMenuClick(menu); }}
+            >
+              {menu}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div className="app-header-center">
+        {contextName ? (
+          <span className="app-header-ctx">{contextName} - DevIgnite</span>
+        ) : (
+          <span className="app-header-ctx">DevIgnite</span>
         )}
       </div>
 
       <div className="app-header-right">
-        {timer && (
-          <div className="app-header-timer">
-            <Activity size={11} strokeWidth={2} />
-            <span>{timer}</span>
-          </div>
-        )}
-        {runningCount > 0 && (
-          <div className="app-header-running">
-            <span className="header-run-dot" />
-            <span>{runningCount} running</span>
-          </div>
-        )}
+        <div className="app-header-stats">
+          {timer && (
+            <div className="app-header-timer">
+              <Activity size={11} strokeWidth={2} />
+              <span>{timer}</span>
+            </div>
+          )}
+          {runningCount > 0 && (
+            <div className="app-header-running">
+              <span className="header-run-dot" />
+              <span>{runningCount} running</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="window-controls">
+          <button className="win-btn minimize" onClick={() => window.devignite?.window?.minimize()}>
+            <Minus size={14} />
+          </button>
+          <button className="win-btn maximize" onClick={() => window.devignite?.window?.maximize()}>
+            <Square size={12} />
+          </button>
+          <button className="win-btn close" onClick={() => window.devignite?.window?.close()}>
+            <X size={14} />
+          </button>
+        </div>
       </div>
     </header>
   );

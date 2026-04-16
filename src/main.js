@@ -62,6 +62,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 820, minWidth: 960, minHeight: 640,
     title: 'DevIgnite',
+    frame: false,
+    titleBarStyle: 'hidden',
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -74,6 +76,7 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+  mainWindow.setMenu(null);
 }
 
 // ── Dialogs ───────────────────────────────────────────────────────────────────
@@ -85,6 +88,16 @@ ipcMain.handle('dialog:openFile', async (_, { filters } = {}) => {
   const r = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: filters || [] });
   return r.canceled ? null : r.filePaths[0];
 });
+
+// ── Window Controls ───────────────────────────────────────────────────────────
+ipcMain.on('window:minimize', () => mainWindow?.minimize());
+ipcMain.on('window:maximize', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+ipcMain.on('window:close', () => mainWindow?.close());
+
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () => {

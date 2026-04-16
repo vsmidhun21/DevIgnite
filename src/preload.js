@@ -24,6 +24,11 @@ const CH = {
 contextBridge.exposeInMainWorld('devignite', {
   pickFolder:  ()        => ipcRenderer.invoke('dialog:openFolder'),
   pickFile:    (filters) => ipcRenderer.invoke('dialog:openFile', { filters }),
+  window: {
+    minimize: () => ipcRenderer.send('window:minimize'),
+    maximize: () => ipcRenderer.send('window:maximize'),
+    close:    () => ipcRenderer.send('window:close'),
+  },
   projects: {
     list:     ()           => ipcRenderer.invoke(CH.PROJECT_LIST),
     get:      (id)         => ipcRenderer.invoke(CH.PROJECT_GET, id),
