@@ -4,29 +4,29 @@ import { Timer, Flame, Server, X } from 'lucide-react';
 const api = window.devignite;
 
 const DEV_PORTS = new Set([
-  3000,3001,3002,3003,3004,3005,3006,3007,3008,3009,
-  4000,4200,4201,5000,5001,5002,5173,5174,5175,
-  6000,7000,8000,8001,8002,8008,8080,8081,8082,8083,8084,8085,8086,8088,8090,
-  9000,9001,9002,9200,
+  3000, 3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009,
+  4000, 4200, 4201, 5000, 5001, 5002, 5173, 5174, 5175,
+  6000, 7000, 8000, 8001, 8002, 8008, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8088, 8090,
+  9000, 9001, 9002, 9200,
 ]);
 
 const isDevPort = (port) => DEV_PORTS.has(port) || (port >= 3000 && port <= 9999);
 
 const fmt = (s) => {
   if (!s) return null;
-  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
-  return [h>0&&`${h}h`, m>0&&`${m}m`, `${sec}s`].filter(Boolean).join(' ');
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return [h > 0 && `${h}h`, m > 0 && `${m}m`, `${sec}s`].filter(Boolean).join(' ');
 };
 
 export default function StatusBar({ message, runningCount, projects }) {
-  const [time,      setTime]      = useState(new Date().toTimeString().slice(0,8));
+  const [time, setTime] = useState(new Date().toTimeString().slice(0, 8));
   const [todaySecs, setTodaySecs] = useState(0);
-  const [streak,    setStreak]    = useState(null);
-  const [ports,     setPorts]     = useState([]);
+  const [streak, setStreak] = useState(null);
+  const [ports, setPorts] = useState([]);
   const [showPorts, setShowPorts] = useState(false);
 
   useEffect(() => {
-    const t = setInterval(() => setTime(new Date().toTimeString().slice(0,8)), 1000);
+    const t = setInterval(() => setTime(new Date().toTimeString().slice(0, 8)), 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -36,7 +36,7 @@ export default function StatusBar({ message, runningCount, projects }) {
         const s = await api.time.productivity(null);
         setTodaySecs(s.todaySeconds || 0);
         setStreak(s.streak);
-      } catch {}
+      } catch { }
     };
     load();
     const t = setInterval(load, 30000);
@@ -46,25 +46,27 @@ export default function StatusBar({ message, runningCount, projects }) {
   const loadPorts = async () => {
     try {
       const list = await api.ports.snapshot();
-      const devOnly = list
+      const unique = list.filter((p, i, arr) => arr.findIndex(x => x.port === p.port) === i);
+      const devOnly = unique
         .filter(p => isDevPort(p.port))
         .map(p => {
           const matched = projects?.find(proj => proj.port === p.port);
-          return { ...p, projectName: matched?.name || null };
+          return { ...p, projectName: matched?.name || 'Unknown' };
         })
         .slice(0, 30);
       setPorts(devOnly);
       setShowPorts(true);
-    } catch {}
+    } catch { }
   };
 
   const killPort = async (port) => {
     await api.ports.kill(port);
     await new Promise(r => setTimeout(r, 500));
     const list = await api.ports.snapshot();
+    const unique = list.filter((p, i, arr) => arr.findIndex(x => x.port === p.port) === i);
     setPorts(
-      list.filter(p => isDevPort(p.port))
-        .map(p => ({ ...p, projectName: projects?.find(pr => pr.port === p.port)?.name || null }))
+      unique.filter(p => isDevPort(p.port))
+        .map(p => ({ ...p, projectName: projects?.find(pr => pr.port === p.port)?.name || 'Unknown' }))
         .slice(0, 30)
     );
   };

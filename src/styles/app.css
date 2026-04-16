@@ -1211,11 +1211,15 @@ body {
   border: 1px solid var(--b0);
   border-radius: 6px;
   padding: 9px 11px;
-  overflow-y: auto;
+  /* overflow-y: auto; */
+  overflow: auto;
   font-size: 11px;
   font-family: var(--font);
   scrollbar-width: thin;
-  min-height: 0
+  min-height: 0;
+  scrollbar-color: #f55d1e #232320;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 
 .log-empty {
