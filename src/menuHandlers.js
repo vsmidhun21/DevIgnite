@@ -11,7 +11,8 @@ export function useMenuHandlers({
   delProject,
   startWork,
   stopWork,
-  loadAll
+  loadAll,
+  setReady
 }) {
   useEffect(() => {
     if (!window.api?.onMenu) return;
@@ -30,7 +31,8 @@ export function useMenuHandlers({
     const installDependencies = () => { if (selectedId) window.devignite.work.run(selectedId); };
     const toggleSidebar = () => { document.querySelector('.sidebar')?.classList.toggle('hidden'); };
     const toggleLogs = () => { document.querySelector('.detail-right')?.classList.toggle('hidden'); };
-    const refreshProjects = () => { loadAll(); };
+    const refreshProjects = () => { setReady(false); loadAll().finally(() => setReady(true)); };
+    const toggleFullscreen = () => { window.devignite.window.maximize(); };
     const killPort = () => {
       const p = projects.find(x => x.id === selectedId);
       if (p?.port) window.devignite.ports.kill(p.port);
@@ -52,6 +54,7 @@ export function useMenuHandlers({
         case "install-deps": installDependencies(); break;
         case "toggle-sidebar": toggleSidebar(); break;
         case "toggle-logs": toggleLogs(); break;
+        case "toggle-fullscreen": toggleFullscreen(); break;
         case "refresh": refreshProjects(); break;
         case "kill-port": killPort(); break;
         case "open-folder": openFolder(); break;
@@ -66,6 +69,6 @@ export function useMenuHandlers({
     };
   }, [
     selectedId, selectedGrpId, projects, setEditProject, setShowProjModal,
-    setEditGroup, setShowGrpModal, delProject, startWork, stopWork, loadAll
+    setEditGroup, setShowGrpModal, delProject, startWork, stopWork, loadAll, setReady
   ]);
 }

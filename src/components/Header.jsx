@@ -11,7 +11,7 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
   const contextName = selectedGroup?.name || selectedProject?.name || null;
   const isRunning = selectedProject?.status === 'running';
   const timer = isRunning && liveSecs != null ? fmt(liveSecs) : null;
-  
+
   const [activeMenu, setActiveMenu] = useState(null);
 
   const handleMenuClick = (menu) => {
@@ -28,14 +28,14 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
         <div className="app-header-logo">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z"
-              fill="var(--ignite)" stroke="var(--ignite)" strokeWidth="1.5" strokeLinejoin="round"/>
+              fill="var(--ignite)" stroke="var(--ignite)" strokeWidth="1.5" strokeLinejoin="round" />
           </svg>
         </div>
-        
+
         <nav className="app-menu">
-          {['File', 'Edit', 'View', 'Window', 'Help'].map(menu => (
-            <button 
-              key={menu} 
+          {['File', 'Edit', 'View', 'Run', 'Window', 'Help'].map(menu => (
+            <button
+              key={menu}
               className={`menu-btn ${activeMenu === menu ? 'active' : ''}`}
               onClick={(e) => { e.stopPropagation(); handleMenuClick(menu); }}
             >
@@ -68,7 +68,7 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
             </div>
           )}
         </div>
-        
+
         <div className="window-controls">
           <button className="win-btn minimize" onClick={() => window.devignite?.window?.minimize()}>
             <Minus size={14} />

@@ -108,23 +108,14 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'New Project', click: () => send('menu:new-project') },
       { label: 'New Workspace', click: () => send('menu:new-workspace') },
       { type: 'separator' },
-      { label: 'Import Projects', click: () => send('menu:import-projects') },
-      { label: 'Export Projects', click: () => send('menu:export-projects') },
-      { type: 'separator' },
       { label: 'Exit', click: () => app.quit() }
     ],
     Edit: [
       { label: 'Edit Project', click: () => send('menu:edit-project') },
       { label: 'Delete Project', click: () => send('menu:delete-project') },
-      { label: 'Duplicate Project', click: () => send('menu:duplicate-project') },
-      { type: 'separator' },
-      { label: 'Open Settings', click: () => send('menu:open-settings') }
     ],
     View: [
-      { label: 'Toggle Sidebar', click: () => send('menu:toggle-sidebar') },
-      { label: 'Toggle Logs', click: () => send('menu:toggle-logs') },
       { label: 'Refresh Projects', click: () => send('menu:refresh-projects') },
-      { type: 'separator' },
       { label: 'Toggle Fullscreen', click: () => send('menu:toggle-fullscreen') }
     ],
     Run: [
@@ -133,13 +124,6 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'Start Workspace', click: () => send('menu:start-workspace') },
       { type: 'separator' },
       { label: 'Install Dependencies', click: () => send('menu:install-dependencies') }
-    ],
-    Tools: [
-      { label: 'Kill Port', click: () => send('menu:kill-port') },
-      { label: 'Open Folder', click: () => send('menu:open-folder') },
-      { label: 'Open in IDE', click: () => send('menu:open-ide') },
-      { type: 'separator' },
-      { label: 'Clear Logs', click: () => send('menu:clear-logs') }
     ],
     Window: [
       { label: 'Minimize', click: () => mainWindow?.minimize() },
@@ -154,9 +138,7 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'Close', click: () => mainWindow?.close() }
     ],
     Help: [
-      { label: 'About', click: () => send('menu:about') },
-      { label: 'Open Logs Folder', click: () => send('menu:open-logs-folder') },
-      { type: 'separator' },
+      { label: 'About', click: () => shell.openExternal('https://devignite.web.app/#how-it-works') },
       { label: 'Report Issue', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite/issues') },
       { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') }
     ]

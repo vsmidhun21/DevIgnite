@@ -8,6 +8,7 @@ import PortConflictModal from './components/PortConflictModal';
 import Header            from './components/Header';
 import StatusBar         from './components/StatusBar';
 import Loader            from './components/Loader';
+import { useMenuHandlers } from './menuHandlers';
 
 const api = window.devignite;
 
@@ -130,6 +131,21 @@ export default function App() {
   const sel  = projects.find(p=>p.id===selectedId)??null;
   const selG = groups.find(g=>g.id===selectedGrpId)??null;
   const runCount = projects.filter(p=>p.status==='running').length;
+
+  useMenuHandlers({
+    selectedId,
+    selectedGrpId,
+    projects,
+    setEditProject,
+    setShowProjModal,
+    setEditGroup,
+    setShowGrpModal,
+    delProject,
+    startWork,
+    stopWork,
+    loadAll,
+    setReady
+  });
 
   return (
     <>
