@@ -2312,12 +2312,31 @@ body {
 
 /* ── Scrollbars ───────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 4px
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--b1);
-  border-radius: 3px
+  background: var(--b2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ignite);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--b2) transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--ignite) transparent;
 }
 
 /* ── Sidebar brand (no top bar - inside sidebar) ─────────────────────────────── */
