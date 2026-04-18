@@ -20,7 +20,8 @@ export class ExecutionManager {
   }
 
   // ── START WORK ────────────────────────────────────────────────────────────
-  async startWork(project, sessionId) {
+  async startWork(project, sessionId, options = { isPrimary: true }) {
+    const isPrimary = options.isPrimary !== false;
     const cwd       = project.path;
     const activeEnv = project.active_env || 'dev';
 
@@ -35,13 +36,13 @@ export class ExecutionManager {
     this.logManager.write(project.id, 'info', `Directory: ${cwd}`);
     this.logManager.write(project.id, 'info', `Env      : ${activeEnv}${loadedFile ? ` (${loadedFile})` : ' (no .env)'}`);
 
-    this.timeTracker.start(project.id, sessionId, loadedFile);
-    this._startTick(project.id, sessionId);
-    this.onStatus(project.id, PROJECT_STATUS.STARTING, null);
-
-    this.openIDE(project);
-
-    if (project.open_terminal !== 0) this.openTerminal(cwd, project.id);
+    if (isPrimary) {
+      this.timeTracker.start(project.id, sessionId, loadedFile);
+      this._startTick(project.id, sessionId);
+      this.onStatus(project.id, PROJECT_STATUS.STARTING, null);
+      this.openIDE(project);
+      if (project.open_terminal !== 0) this.openTerminal(cwd, project.id);
+    }
 
     const steps = this._buildSteps(project);
     let mainChild = null;
@@ -52,28 +53,30 @@ export class ExecutionManager {
       this.logManager.write(project.id, 'info', `   $ ${step.cmd}`);
       if (step.wait) {
         try {
-          await this._runWait(step.cmd, cwd, processEnv, project.id);
+          await this._runWait(step.cmd, cwd, processEnv, project.id, { isPrimary });
           this.logManager.write(project.id, 'success', `   ✓ ${step.label}`);
         } catch (err) {
           this.logManager.write(project.id, 'error', `   ✗ ${step.label}: ${err.message}`);
-          this.onStatus(project.id, PROJECT_STATUS.ERROR, null);
-          this.timeTracker.markError(sessionId);
-          this._stopTick(project.id);
+          if (isPrimary) {
+            this.onStatus(project.id, PROJECT_STATUS.ERROR, null);
+            this.timeTracker.markError(sessionId);
+            this._stopTick(project.id);
+          }
           return { ok: false, error: err.message };
         }
       } else {
-        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId, project);
+        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId, project, { isPrimary });
       }
     }
 
     if (mainChild) {
-      this.processManager.register(project.id, mainChild, sessionId);
-    } else {
+      this.processManager.register(project.id, mainChild, sessionId, isPrimary);
+    } else if (isPrimary) {
       this.onStatus(project.id, PROJECT_STATUS.RUNNING, null);
     }
 
     // Open browser after server starts
-    if (project.open_browser !== 0 && project.url) {
+    if (isPrimary && project.open_browser !== 0 && project.url) {
       const delay = mainChild ? 3000 : 500;
       setTimeout(() => this.openBrowser(project.url, project.id), delay);
     }
@@ -95,7 +98,8 @@ export class ExecutionManager {
   }
 
   // ── RUN ONLY (no IDE, no terminal, no browser) ────────────────────────────
-  async runOnly(project, sessionId) {
+  async runOnly(project, sessionId, options = { isPrimary: true }) {
+    const isPrimary = options.isPrimary !== false;
     const cwd       = project.path;
     const activeEnv = project.active_env || 'dev';
 
@@ -121,22 +125,24 @@ export class ExecutionManager {
       this.logManager.write(project.id, 'info', `   $ ${step.cmd}`);
       if (step.wait) {
         try {
-          await this._runWait(step.cmd, cwd, processEnv, project.id);
+          await this._runWait(step.cmd, cwd, processEnv, project.id, { isPrimary });
           this.logManager.write(project.id, 'success', `   ✓ ${step.label}`);
         } catch (err) {
           this.logManager.write(project.id, 'error', `   ✗ ${step.label}: ${err.message}`);
-          this.onStatus(project.id, PROJECT_STATUS.ERROR, null);
-          this.timeTracker.markError(sessionId);
-          this._stopTick(project.id);
+          if (isPrimary) {
+            this.onStatus(project.id, PROJECT_STATUS.ERROR, null);
+            this.timeTracker.markError(sessionId);
+            this._stopTick(project.id);
+          }
           return { ok: false, error: err.message };
         }
       } else {
-        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId, project);
+        mainChild = this._runBackground(step.cmd, cwd, processEnv, project.id, sessionId, project, { isPrimary });
       }
     }
 
-    if (mainChild) this.processManager.register(project.id, mainChild, sessionId);
-    else           this.onStatus(project.id, PROJECT_STATUS.RUNNING, null);
+    if (mainChild) this.processManager.register(project.id, mainChild, sessionId, isPrimary);
+    else if (isPrimary) this.onStatus(project.id, PROJECT_STATUS.RUNNING, null);
 
     return { ok: true, sessionId };
   }
@@ -244,7 +250,7 @@ export class ExecutionManager {
     return [{ label: 'Start', cmd: command, wait: false }];
   }
 
-  _runWait(command, cwd, env, projectId) {
+  _runWait(command, cwd, env, projectId, options = { isPrimary: true }) {
     return new Promise((resolve, reject) => {
       const child = spawn(command, [], { cwd, env, shell: true, windowsHide: true });
       child.stdout.on('data', d => d.toString().split('\n').filter(Boolean).forEach(l => this.logManager.write(projectId, 'info', '  ' + l)));
@@ -254,15 +260,18 @@ export class ExecutionManager {
     });
   }
 
-  _runBackground(command, cwd, env, projectId, sessionId, project) {
+  _runBackground(command, cwd, env, projectId, sessionId, project, options = { isPrimary: true }) {
+    const isPrimary = options.isPrimary !== false;
     const child = spawn(command, [], { cwd, env, shell: true, windowsHide: true });
     let isStarted = false;
 
     const markStarted = () => {
       if (isStarted) return;
       isStarted = true;
-      this.onStatus(projectId, PROJECT_STATUS.RUNNING, child.pid);
-      this.logManager.write(projectId, 'success', `Started (PID ${child.pid})`);
+      if (isPrimary) {
+        this.onStatus(projectId, PROJECT_STATUS.RUNNING, child.pid);
+      }
+      this.logManager.write(projectId, 'success', `${isPrimary ? 'Started' : 'Action started'} (PID ${child.pid})`);
     };
 
     const timeout = setTimeout(markStarted, 4000); // Generic 4s fallback
@@ -301,15 +310,17 @@ export class ExecutionManager {
     child.on('error', err => {
       clearTimeout(timeout);
       this.logManager.write(projectId, 'error', `Spawn error: ${err.message}`);
-      this.onStatus(projectId, PROJECT_STATUS.ERROR, null);
-      this.timeTracker.markError(sessionId);
-      this._stopTick(projectId);
+      if (isPrimary) {
+        this.onStatus(projectId, PROJECT_STATUS.ERROR, null);
+        this.timeTracker.markError(sessionId);
+        this._stopTick(projectId);
+      }
     });
 
     child.on('close', code => {
       clearTimeout(timeout);
-      this.logManager.write(projectId, code === 0 ? 'info' : 'warn', `Exited (code ${code})`);
-      if (this.processManager.isRunning(projectId)) {
+      this.logManager.write(projectId, code === 0 ? 'info' : 'warn', `${isPrimary ? 'Process' : 'Action'} exited (code ${code})`);
+      if (isPrimary && this.processManager.isRunning(projectId)) {
         this.onStatus(projectId, PROJECT_STATUS.STOPPED, null);
         this.timeTracker.stop(sessionId);
         this._stopTick(projectId);

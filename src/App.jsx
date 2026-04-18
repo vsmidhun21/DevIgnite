@@ -27,6 +27,10 @@ export default function App() {
   const [ticks,         setTicks]         = useState({});
   const [portConflict,  setPortConflict]  = useState(null);
   const [pendingStart,  setPendingStart]  = useState(null);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    return parseInt(localStorage.getItem('sidebarWidth')) || 240;
+  });
+  const [isResizing,  setIsResizing]  = useState(false);
   const unsubRef = useRef([]);
 
   const loadAll = useCallback(async () => {
@@ -67,6 +71,32 @@ export default function App() {
     unsubRef.current = [u1,u2,u3,u4];
     return () => unsubRef.current.forEach(fn=>fn?.());
   }, [loadAll]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      let newWidth = e.clientX;
+      if (newWidth < 180) newWidth = 180;
+      if (newWidth > 600) newWidth = 600;
+      setSidebarWidth(newWidth);
+      localStorage.setItem('sidebarWidth', newWidth);
+    };
+    const handleMouseUp = () => setIsResizing(false);
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   const startWork = async (id) => {
     const r = await api.work.start(id);
@@ -176,7 +206,7 @@ export default function App() {
           liveSecs={sel ? ticks[sel.id] : null}
         />
 
-        <div className="app-body">
+        <div className="app-body" style={{ '--sidebar-w': `${sidebarWidth}px` }}>
           <Sidebar
             projects={projects}
             groups={groups}
@@ -190,6 +220,8 @@ export default function App() {
             onAdd={() => { setEditProject(null); setShowProjModal(true); }}
             onAddGroup={() => { setEditGroup(null); setShowGrpModal(true); }}
           />
+
+          <div className={`resizer-v ${isResizing ? 'active' : ''}`} onMouseDown={() => setIsResizing(true)} />
 
           <main className="main-panel">
             {selG ? (

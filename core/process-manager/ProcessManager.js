@@ -10,61 +10,99 @@ import { PROJECT_STATUS } from '../../shared/constants/index.js';
 
 export class ProcessManager {
   constructor() {
+    // Primary process per project (e.g. dev server)
     // Map<projectId, { process, pid, startedAt, sessionId }>
-    this._running = new Map();
+    this._primary = new Map();
+    // Auxiliary processes (e.g. build actions)
+    // Map<projectId, Map<sessionId, { process, pid, startedAt, sessionId }>>
+    this._auxiliary = new Map();
   }
 
-  register(projectId, childProcess, sessionId) {
-    this._running.set(projectId, {
+  register(projectId, childProcess, sessionId, isPrimary = true) {
+    const entry = {
       process: childProcess,
       pid: childProcess.pid,
       startedAt: new Date(),
       sessionId,
-    });
-    childProcess.on('close', () => {
-      this._running.delete(projectId);
-    });
+    };
+
+    if (isPrimary) {
+      this._primary.set(projectId, entry);
+      childProcess.on('close', () => {
+        // Only delete if it's the same session we registered
+        const current = this._primary.get(projectId);
+        if (current && current.sessionId === sessionId) {
+          this._primary.delete(projectId);
+        }
+      });
+    } else {
+      if (!this._auxiliary.has(projectId)) {
+        this._auxiliary.set(projectId, new Map());
+      }
+      this._auxiliary.get(projectId).set(sessionId, entry);
+      childProcess.on('close', () => {
+        const projectMap = this._auxiliary.get(projectId);
+        if (projectMap) {
+          projectMap.delete(sessionId);
+        }
+      });
+    }
   }
 
   /**
-   * Stop a running project.
-   * On Windows, SIGTERM doesn't propagate to child processes spawned by cmd.exe.
-   * We use taskkill /F /T which kills the entire process tree.
+   * Stop processes for a project.
+   * kind: 'primary', 'auxiliary', or 'all'
    */
-  stop(projectId) {
-    const entry = this._running.get(projectId);
-    if (!entry) return false;
-
-    const { process: proc, pid } = entry;
-    const isWindows = os.platform() === 'win32';
-
-    try {
-      if (isWindows) {
-        // /F = force, /T = kill entire process tree (children too)
-        execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
-      } else {
-        // Kill the process group on Unix
-        process.kill(-pid, 'SIGTERM');
+  stop(projectId, kind = 'primary') {
+    const entries = [];
+    if (kind === 'primary' || kind === 'all') {
+      const p = this._primary.get(projectId);
+      if (p) entries.push({ ...p, type: 'primary' });
+    }
+    if (kind === 'auxiliary' || kind === 'all') {
+      const auxMap = this._auxiliary.get(projectId);
+      if (auxMap) {
+        for (const a of auxMap.values()) entries.push({ ...a, type: 'auxiliary' });
       }
-    } catch {
-      // Process already gone — still clean up our map
-      try { proc.kill(); } catch { }
     }
 
-    this._running.delete(projectId);
+    if (entries.length === 0) return false;
+
+    const isWindows = os.platform() === 'win32';
+
+    for (const entry of entries) {
+      const { process: proc, pid, sessionId, type } = entry;
+      try {
+        if (isWindows) {
+          execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
+        } else {
+          process.kill(-pid, 'SIGTERM');
+        }
+      } catch {
+        try { proc.kill(); } catch { }
+      }
+
+      if (type === 'primary') {
+        this._primary.delete(projectId);
+      } else {
+        const auxMap = this._auxiliary.get(projectId);
+        if (auxMap) auxMap.delete(sessionId);
+      }
+    }
+
     return true;
   }
 
   async restart(projectId, runFn) {
-    this.stop(projectId);
+    this.stop(projectId, 'primary');
     await new Promise(resolve => setTimeout(resolve, 1500));
     runFn();
   }
 
-  isRunning(projectId) { return this._running.has(projectId); }
+  isRunning(projectId) { return this._primary.has(projectId); }
 
   getInfo(projectId) {
-    const entry = this._running.get(projectId);
+    const entry = this._primary.get(projectId);
     if (!entry) return null;
     return {
       pid: entry.pid,
@@ -74,10 +112,11 @@ export class ProcessManager {
     };
   }
 
-  listRunning() { return [...this._running.keys()]; }
+  listRunning() { return [...this._primary.keys()]; }
 
   stopAll() {
-    for (const id of [...this._running.keys()]) this.stop(id);
+    for (const id of [...this._primary.keys()]) this.stop(id, 'primary');
+    for (const id of [...this._auxiliary.keys()]) this.stop(id, 'auxiliary');
   }
 
   getStatus(projectId) {
