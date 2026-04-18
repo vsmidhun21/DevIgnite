@@ -18,6 +18,9 @@ const CH = {
   ENV_DETECT:'env:detect', ENV_PARSE:'env:parse',
   SESSION_HISTORY:'session:history', SESSION_TODAY:'session:today',
   SESSION_ALL_TIME:'session:alltime', PRODUCTIVITY_STATS:'productivity:stats',
+  NOTE_GET:'note:get', NOTE_SAVE:'note:save',
+  TODO_GET:'todo:get', TODO_ADD:'todo:add',
+  TODO_TOGGLE:'todo:toggle', TODO_DELETE:'todo:delete',
   LOG_STREAM:'log:stream', STATUS_UPDATE:'status:update', TICK_UPDATE:'tick:update',
   PORT_CONFLICT:'port:conflict',
 };
@@ -97,6 +100,16 @@ contextBridge.exposeInMainWorld('devignite', {
   config: {
     get: (projectId, env)            => ipcRenderer.invoke(CH.CONFIG_GET, { projectId, env }),
     set: (projectId, env, overrides) => ipcRenderer.invoke(CH.CONFIG_SET, { projectId, env, overrides }),
+  },
+  notes: {
+    get:  (type, refId)          => ipcRenderer.invoke(CH.NOTE_GET, { type, refId }),
+    save: (type, refId, content) => ipcRenderer.invoke(CH.NOTE_SAVE, { type, refId, content }),
+  },
+  todos: {
+    get:    (type, refId)       => ipcRenderer.invoke(CH.TODO_GET, { type, refId }),
+    add:    (type, refId, text) => ipcRenderer.invoke(CH.TODO_ADD, { type, refId, text }),
+    toggle: (id)                => ipcRenderer.invoke(CH.TODO_TOGGLE, id),
+    delete: (id)                => ipcRenderer.invoke(CH.TODO_DELETE, id),
   },
   on: {
     status:       (cb) => on(CH.STATUS_UPDATE, cb),

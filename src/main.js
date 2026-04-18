@@ -17,6 +17,7 @@ import { IdeDetector } from '../core/ide-detector/IdeDetector.js';
 import { GroupManager } from '../core/group-manager/GroupManager.js';
 import { PortManager } from '../core/port-manager/PortManager.js';
 import { GitService } from '../core/git-service/GitService.js';
+import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
 import { getDb, closeDb } from '../core/db/database.js';
 import { IPC_CHANNELS } from '../shared/constants/index.js';
 
@@ -25,7 +26,7 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow, dbPath, logsDir;
 let projectManager, configManager, timeTracker, logManager, envManager;
-let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService;
+let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
 
@@ -46,6 +47,7 @@ function initializeApp() {
   groupManager = new GroupManager(dbPath);
   portManager = new PortManager();
   gitService = new GitService();
+  notesTodosManager = new NotesTodosManager(dbPath);
 
   logManager = new LogManager(logsDir, (projectId, level, message, ts) => {
     mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, { projectId, level, message, ts });
@@ -304,6 +306,14 @@ ipcMain.handle(IPC_CHANNELS.SESSION_HISTORY, (_, { projectId, limit }) => timeTr
 ipcMain.handle(IPC_CHANNELS.SESSION_TODAY, (_, projectId) => ({ seconds: timeTracker.getTodayTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getTodayTotal(projectId)) }));
 ipcMain.handle(IPC_CHANNELS.SESSION_ALL_TIME, (_, projectId) => ({ seconds: timeTracker.getAllTimeTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getAllTimeTotal(projectId)) }));
 ipcMain.handle(IPC_CHANNELS.PRODUCTIVITY_STATS, (_, { projectId }) => timeTracker.getProductivityStats(projectId || null));
+
+// ── Notes & Todos ─────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.NOTE_GET, (_, { type, refId }) => notesTodosManager.getNote(type, refId));
+ipcMain.handle(IPC_CHANNELS.NOTE_SAVE, (_, { type, refId, content }) => notesTodosManager.saveNote(type, refId, content));
+ipcMain.handle(IPC_CHANNELS.TODO_GET, (_, { type, refId }) => notesTodosManager.getTodos(type, refId));
+ipcMain.handle(IPC_CHANNELS.TODO_ADD, (_, { type, refId, text }) => notesTodosManager.addTodo(type, refId, text));
+ipcMain.handle(IPC_CHANNELS.TODO_TOGGLE, (_, id) => notesTodosManager.toggleTodo(id));
+ipcMain.handle(IPC_CHANNELS.TODO_DELETE, (_, id) => notesTodosManager.deleteTodo(id));
 
 // ── Env / Config / IDE ────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.ENV_DETECT, (_, { projectPath }) => envManager.detectEnvFiles(projectPath));

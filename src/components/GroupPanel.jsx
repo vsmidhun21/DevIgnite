@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Play, Square, Loader2, GitBranch } from 'lucide-react';
+import NotesTodosPanel from './NotesTodosPanel';
 
 const api = window.devignite;
 const fmt = (s) => {
@@ -11,6 +12,7 @@ const fmt = (s) => {
 export default function GroupPanel({ group, projects, ticks, onEdit, onDelete, onProjectSelect }) {
   const [loading,  setLoading]  = useState(false);
   const [results,  setResults]  = useState([]);
+  const [tab, setTab] = useState('projects');
 
   const members    = projects.filter(p=>group.projectIds.includes(p.id));
   const allRunning = members.length>0&&members.every(p=>p.status==='running');
@@ -67,13 +69,19 @@ export default function GroupPanel({ group, projects, ticks, onEdit, onDelete, o
         )}
       </div>
 
-      <div className="group-members">
-        {members.length===0&&(
-          <div className="steps-empty" style={{margin:20}}>
+      <div className="left-tabs" style={{padding:'0 20px', borderBottom:'1px solid var(--b0)'}}>
+        <button className={`left-tab ${tab==='projects'?'active':''}`} onClick={()=>setTab('projects')}>Projects</button>
+        <button className={`left-tab ${tab==='notes'?'active':''}`} onClick={()=>setTab('notes')}>Notes</button>
+      </div>
+
+      <div className="group-members" style={{padding:20}}>
+        {tab === 'notes' && <NotesTodosPanel type="workspace" refId={group.id} />}
+        {tab === 'projects' && members.length===0&&(
+          <div className="steps-empty">
             No projects. Edit to add projects.
           </div>
         )}
-        {members.map(p => {
+        {tab === 'projects' && members.map(p => {
           const live   = ticks?.[p.id];
           const result = results.find(r=>r.projectId===p.id);
           return (
