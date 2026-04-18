@@ -17,6 +17,10 @@ export default function ProjectDetail({
   const [newActionName, setNewActionName] = useState('');
   const [newActionCmd, setNewActionCmd] = useState('');
   const isRunning = project.status==='running'||project.status==='starting';
+  const [terminalHeight, setTerminalHeight] = useState(() => {
+    return parseInt(localStorage.getItem('terminalHeight')) || 280;
+  });
+  const [isResizingTerminal, setIsResizingTerminal] = useState(false);
 
   const steps = (() => { try { return JSON.parse(project.startup_steps||'[]'); } catch { return []; } })();
   const git = project.git||{};
@@ -26,6 +30,33 @@ export default function ProjectDetail({
     api.env.detect(project.path).then(setEnvData).catch(()=>{});
     api.actions.get(project.id).then(setActions).catch(()=>{});
   }, [project.path, project.id]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizingTerminal) return;
+      // Subtract status bar (24px) from the bottom calculation
+      let newHeight = window.innerHeight - e.clientY - 24;
+      if (newHeight < 120) newHeight = 120;
+      if (newHeight > 600) newHeight = 600;
+      setTerminalHeight(newHeight);
+      localStorage.setItem('terminalHeight', newHeight);
+    };
+    const handleMouseUp = () => setIsResizingTerminal(false);
+
+    if (isResizingTerminal) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingTerminal]);
 
   const changeEnvFile = async (f) => {
     await api.projects.update(project.id, {env_file:f||null});
@@ -105,9 +136,15 @@ export default function ProjectDetail({
                 <MetaCard icon={<Activity size={12}/>} label="Status" value={project.status||'stopped'} accent={isRunning?'running':''} />
                 <MetaCard icon={<Hash size={12}/>} label="Port"   value={project.port?`:${project.port}`:'—'} />
                 <MetaCard icon={<Code2 size={12}/>} label="IDE"    value={project.ide} />
-                {project.url && <MetaCard icon={<Globe size={12}/>} label="URL" value={project.url} />}
                 <MetaCard icon={<Cpu size={12}/>} label="PID"    value={project.pid??'—'} />
               </div>
+              {project.url && (
+                <a className="meta-url-card" onClick={() => api.work.openBrowser(project.id)} title="Open in Browser">
+                  <Globe size={14} style={{ color: 'var(--ignite)' }} />
+                  <span className="meta-url-text">{project.url}</span>
+                  <div style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--t2)', opacity: 0.6 }}>Click to open</div>
+                </a>
+              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }}>
@@ -243,7 +280,8 @@ export default function ProjectDetail({
           </div>
         </div>
 
-        <div className="detail-terminal">
+        <div className={`resizer-h ${isResizingTerminal ? 'active' : ''}`} onMouseDown={() => setIsResizingTerminal(true)} />
+        <div className="detail-terminal" style={{ '--terminal-h': `${terminalHeight}px` }}>
           <div className="log-toolbar" style={{ padding: '6px 16px', background: 'var(--bg1)', borderBottom: '1px solid var(--b0)' }}>
             <div className="section-title"><TerminalSquare size={12}/> Console Output</div>
           </div>

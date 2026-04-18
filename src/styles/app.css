@@ -9,6 +9,7 @@
 :root {
   --font: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --sidebar-w: 240px;
+  --terminal-h: 280px;
   --header-h: 32px;
   --status-h: 24px;
   --bg0: #ffffff;
@@ -322,18 +323,55 @@ body {
 
 .app-body {
   flex: 1;
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
-  overflow: hidden
+  display: flex;
+  overflow: hidden;
+  position: relative;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────────────────────────── */
+.main-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg0);
+  min-width: 0;
+}
+
+/* ── Resizing ────────────────────────────────────────────────────────────────── */
+.resizer-v {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.2s;
+  z-index: 10;
+  position: relative;
+}
+
+.resizer-v:hover, .resizer-v.active {
+  background: var(--ignite);
+}
+
+.resizer-h {
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 0.2s;
+  z-index: 10;
+  position: relative;
+}
+
+.resizer-h:hover, .resizer-h.active {
+  background: var(--ignite);
+}
+
 .sidebar {
+  width: var(--sidebar-w);
   background: var(--bg1);
   border-right: 1px solid var(--b0);
   display: flex;
   flex-direction: column;
-  overflow: hidden
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .sidebar-section {
@@ -892,13 +930,44 @@ body {
 }
 
 .detail-terminal {
-  height: 280px;
+  height: var(--terminal-h);
   border-top: 1px solid var(--b1);
   background: var(--bg0);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   flex-shrink: 0;
+}
+
+/* ── URL Card ────────────────────────────────────────────────────────────────── */
+.meta-url-card {
+  background: var(--bg1);
+  border: 1px solid var(--b0);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  transition: all 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+}
+
+.meta-url-card:hover {
+  border-color: var(--ignite);
+  background: var(--bg0);
+}
+
+.meta-url-text {
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
 }
 
 .section-label {
