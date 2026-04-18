@@ -5,7 +5,7 @@ export class GroupManager {
   constructor(dbPath) {
     this.db = getDb(dbPath);
     this._stmts = {
-      listAll:  this.db.prepare('SELECT * FROM groups ORDER BY name ASC'),
+      listAll:  this.db.prepare('SELECT * FROM groups ORDER BY isPinned DESC, name COLLATE NOCASE ASC'),
       getById:  this.db.prepare('SELECT * FROM groups WHERE id = ?'),
       getByName:this.db.prepare('SELECT * FROM groups WHERE name = ?'),
       insert:   this.db.prepare(`INSERT INTO groups (name, project_ids, color) VALUES (@name, @project_ids, @color)`),
@@ -60,10 +60,19 @@ export class GroupManager {
     return this.update(groupId, { projectIds: group.projectIds.filter(id => id !== projectId) });
   }
 
+  togglePin(id) {
+    const existing = this.getById(id);
+    if (!existing) throw new Error(`Group ${id} not found`);
+    const newPin = existing.isPinned ? 0 : 1;
+    this.db.prepare('UPDATE groups SET isPinned = ?, updated_at = datetime(\'now\') WHERE id = ?').run(newPin, id);
+    return this.getById(id);
+  }
+
   _parse(row) {
     return {
       ...row,
       projectIds: (() => { try { return JSON.parse(row.project_ids || '[]'); } catch { return []; } })(),
+      isPinned: row.isPinned === 1,
     };
   }
 }

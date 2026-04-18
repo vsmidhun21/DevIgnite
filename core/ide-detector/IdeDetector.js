@@ -114,8 +114,7 @@ export class IdeDetector {
       const exe = this._find(def);
       if (exe) {
         results.push({
-          id: def.id, name: def.name, execPath: exe, available: true,
-          buildCmd: (projectPath) => def.cmd(projectPath, exe),
+          id: def.id, name: def.name, execPath: exe, available: true
         });
       }
     }

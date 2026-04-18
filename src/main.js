@@ -172,6 +172,7 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () => {
 ipcMain.handle(IPC_CHANNELS.PROJECT_GET, (_, id) => projectManager.getById(id));
 ipcMain.handle(IPC_CHANNELS.PROJECT_ADD, (_, data) => projectManager.add(data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE, (_, { id, data }) => projectManager.update(id, data));
+ipcMain.handle(IPC_CHANNELS.PROJECT_TOGGLE_PIN, (_, id) => projectManager.togglePin(id));
 ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, (_, id) => {
   if (processManager.isRunning(id)) {
     const sid = activeSessions.get(id);
@@ -243,6 +244,7 @@ ipcMain.handle(IPC_CHANNELS.GROUP_LIST, () => groupManager.listAll());
 ipcMain.handle(IPC_CHANNELS.GROUP_GET, (_, id) => groupManager.getById(id));
 ipcMain.handle(IPC_CHANNELS.GROUP_ADD, (_, data) => groupManager.add(data));
 ipcMain.handle(IPC_CHANNELS.GROUP_UPDATE, (_, { id, data }) => groupManager.update(id, data));
+ipcMain.handle(IPC_CHANNELS.GROUP_TOGGLE_PIN, (_, id) => groupManager.togglePin(id));
 ipcMain.handle(IPC_CHANNELS.GROUP_DELETE, (_, id) => groupManager.delete(id));
 ipcMain.handle(IPC_CHANNELS.GROUP_ADD_PROJECT, (_, { groupId, projectId }) => groupManager.addProject(groupId, projectId));
 ipcMain.handle(IPC_CHANNELS.GROUP_REMOVE_PROJECT, (_, { groupId, projectId }) => groupManager.removeProject(groupId, projectId));

@@ -505,6 +505,36 @@ body {
   border-radius: 0 2px 2px 0
 }
 
+.pin-btn {
+  background: none;
+  border: none;
+  color: var(--t2);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all .2s;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.group-item:hover .pin-btn,
+.project-item:hover .pin-btn,
+.pin-btn.pinned {
+  opacity: 1;
+}
+
+.pin-btn:hover {
+  background: var(--b0);
+  color: var(--accent);
+}
+
+.pin-btn.pinned {
+  color: var(--amber);
+}
+
 .status-dot {
   width: 7px;
   height: 7px;

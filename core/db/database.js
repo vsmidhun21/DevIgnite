@@ -22,6 +22,7 @@ function runMigrations(database) {
       name           TEXT    NOT NULL,
       path           TEXT    NOT NULL,
       type           TEXT    NOT NULL DEFAULT 'Custom',
+      isPinned       INTEGER DEFAULT 0,
       command        TEXT    NOT NULL DEFAULT '',
       ide            TEXT    NOT NULL DEFAULT 'VS Code',
       ide_path       TEXT,
@@ -74,6 +75,7 @@ function runMigrations(database) {
     CREATE TABLE IF NOT EXISTS groups (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       name        TEXT    NOT NULL UNIQUE,
+      isPinned    INTEGER DEFAULT 0,
       project_ids TEXT    NOT NULL DEFAULT '[]',
       color       TEXT    DEFAULT '#1a6ef5',
       created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
@@ -89,6 +91,8 @@ function runMigrations(database) {
   safe(`ALTER TABLE projects ADD COLUMN install_deps  INTEGER DEFAULT 0`);
   safe(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
   safe(`ALTER TABLE projects ADD COLUMN ide_path TEXT`);
+  safe(`ALTER TABLE projects ADD COLUMN isPinned INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE groups ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
 }
 
