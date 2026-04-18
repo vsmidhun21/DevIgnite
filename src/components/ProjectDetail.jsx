@@ -3,6 +3,7 @@ import StartWork         from './StartWork';
 import LogViewer         from './LogViewer';
 import ProductivityPanel from './ProductivityPanel';
 import EnvSelector       from './EnvSelector';
+import NotesTodosPanel   from './NotesTodosPanel';
 import { GitBranch, Terminal, Globe, Code2, Play, Square } from 'lucide-react';
 
 const api = window.devignite;
@@ -79,6 +80,7 @@ export default function ProjectDetail({
         <div className="detail-left">
           <div className="left-tabs">
             <button className={`left-tab ${leftTab==='info'?'active':''}`} onClick={()=>setLeftTab('info')}>Info</button>
+            <button className={`left-tab ${leftTab==='notes'?'active':''}`} onClick={()=>setLeftTab('notes')}>Notes</button>
             <button className={`left-tab ${leftTab==='productivity'?'active':''}`} onClick={()=>setLeftTab('productivity')}>Stats</button>
           </div>
 
@@ -151,6 +153,10 @@ export default function ProjectDetail({
               )}
             </section>
           </>}
+
+          {leftTab==='notes' && (
+            <NotesTodosPanel type="project" refId={project.id}/>
+          )}
 
           {leftTab==='productivity' && (
             <section><ProductivityPanel projectId={project.id}/></section>

@@ -30,6 +30,10 @@ export const IPC_CHANNELS = {
   SESSION_HISTORY: 'session:history',
   SESSION_TODAY: 'session:today', SESSION_ALL_TIME: 'session:alltime',
   PRODUCTIVITY_STATS: 'productivity:stats',
+  // Notes & Todos
+  NOTE_GET: 'note:get', NOTE_SAVE: 'note:save',
+  TODO_GET: 'todo:get', TODO_ADD: 'todo:add',
+  TODO_TOGGLE: 'todo:toggle', TODO_DELETE: 'todo:delete',
   // Push channels (main → renderer)
   LOG_STREAM: 'log:stream', STATUS_UPDATE: 'status:update', TICK_UPDATE: 'tick:update',
   PORT_CONFLICT: 'port:conflict',
