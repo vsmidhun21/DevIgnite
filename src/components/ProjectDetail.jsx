@@ -137,14 +137,18 @@ export default function ProjectDetail({
                 <MetaCard icon={<Hash size={12}/>} label="Port"   value={project.port?`:${project.port}`:'—'} />
                 <MetaCard icon={<Code2 size={12}/>} label="IDE"    value={project.ide} />
                 <MetaCard icon={<Cpu size={12}/>} label="PID"    value={project.pid??'—'} />
+                {project.url && (
+                  <div className="meta-card clickable" onClick={() => api.work.openBrowser(project.id)} title="Open in Browser" style={{ cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
+                      <Globe size={12}/>
+                      <div className="meta-label" style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>URL</div>
+                    </div>
+                    <div className="meta-value" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {project.url}
+                    </div>
+                  </div>
+                )}
               </div>
-              {project.url && (
-                <a className="meta-url-card" onClick={() => api.work.openBrowser(project.id)} title="Open in Browser">
-                  <Globe size={14} style={{ color: 'var(--ignite)' }} />
-                  <span className="meta-url-text">{project.url}</span>
-                  <div style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--t2)', opacity: 0.6 }}>Click to open</div>
-                </a>
-              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }}>
