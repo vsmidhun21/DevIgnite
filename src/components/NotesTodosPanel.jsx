@@ -31,7 +31,7 @@ export default function NotesTodosPanel({ type, refId }) {
 
   const handleWordLimit = (e) => {
     const val = e.target.value;
-    const words = val.trim().split(/\\s+/);
+    const words = val.trim().split(/\s+/);
     if (words.length > 500 && words[0] !== "") {
       return;
     }
@@ -57,7 +57,7 @@ export default function NotesTodosPanel({ type, refId }) {
     loadData();
   };
 
-  const wordCount = note.trim() ? note.trim().split(/\\s+/).length : 0;
+  const wordCount = note.trim() ? note.trim().split(/\s+/).length : 0;
 
   return (
     <div className="notes-todos-panel" style={{display:'flex', flexDirection:'column', gap:0}}>
