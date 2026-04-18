@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, X, Plus } from 'lucide-react';
+import { Search, X, Plus, Star } from 'lucide-react';
 
 const fmt = (s) => {
   if (!s) return null;
@@ -10,6 +10,7 @@ const fmt = (s) => {
 export default function Sidebar({
   projects, groups, selectedId, selectedGroupId,
   ticks, onSelect, onSelectGroup, onAdd, onAddGroup,
+  onTogglePinProject, onTogglePinGroup
 }) {
   const [search, setSearch] = useState('');
 
@@ -69,6 +70,9 @@ export default function Sidebar({
                   <span className="proj-name">{g.name}</span>
                   <span className="proj-today">{gps.length} projects</span>
                 </div>
+                <button className={`pin-btn ${g.isPinned ? 'pinned' : ''}`} onClick={(e) => onTogglePinGroup?.(g.id, e)} title="Pin workspace">
+                  <Star size={12} strokeWidth={2.5} fill={g.isPinned ? 'currentColor' : 'none'} />
+                </button>
                 <span className={`group-status-dot ${allRun?'running':anyRun?'partial':''}`}/>
               </div>
             );
@@ -111,6 +115,9 @@ export default function Sidebar({
                         : null}
                   </div>
                 </div>
+                <button className={`pin-btn ${p.isPinned ? 'pinned' : ''}`} onClick={(e) => onTogglePinProject?.(p.id, e)} title="Pin project">
+                  <Star size={12} strokeWidth={2.5} fill={p.isPinned ? 'currentColor' : 'none'} />
+                </button>
               </li>
             );
           })}

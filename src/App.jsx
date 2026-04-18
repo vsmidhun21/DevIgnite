@@ -114,6 +114,18 @@ export default function App() {
     await loadAll();
   };
 
+  const togglePinProject = async (id, e) => {
+    e?.stopPropagation();
+    await api.projects.togglePin(id);
+    await loadAll();
+  };
+
+  const togglePinGroup = async (id, e) => {
+    e?.stopPropagation();
+    await api.groups.togglePin(id);
+    await loadAll();
+  };
+
   const clearProjectLogs = async (id) => {
     await api.logs.clear(id);
     setLogs(prev => { const n={...prev}; delete n[id]; return n; });
@@ -173,6 +185,8 @@ export default function App() {
             ticks={ticks}
             onSelect={id => { setSelectedId(id); setSelectedGrpId(null); }}
             onSelectGroup={id => { setSelectedGrpId(id); setSelectedId(null); }}
+            onTogglePinProject={togglePinProject}
+            onTogglePinGroup={togglePinGroup}
             onAdd={() => { setEditProject(null); setShowProjModal(true); }}
             onAddGroup={() => { setEditGroup(null); setShowGrpModal(true); }}
           />

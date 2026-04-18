@@ -301,14 +301,18 @@ export default function AddProjectModal({ project, onSave, onClose }) {
               {availIDEs.length===0 ? (
                 <div className="steps-empty">No IDEs detected. Use custom path.</div>
               ) : (
-                <div className="ide-grid">
+                <div className="ide-list-container">
                   {availIDEs.map(ide=>(
                     <div key={ide.id}
-                      className={`ide-card ${form.ide===ide.name?'selected':''}`}
+                      className={`ide-item ${form.ide===ide.name?'selected':''}`}
                       onClick={()=>setForm(prev=>({...prev,ide:ide.name,ide_id:ide.id,ide_path:''}))}>
-                      <div className="ide-card-name">{ide.name}</div>
-                      <div className="ide-card-path">{ide.execPath}</div>
-                      <div className="ide-card-tick">{form.ide===ide.name?<Check size={11}/>:''}</div>
+                      <div className="ide-item-info">
+                        <div className="ide-item-name">{ide.name}</div>
+                        <div className="ide-item-path">{ide.execPath}</div>
+                      </div>
+                      <div className="ide-item-check">
+                        {form.ide===ide.name && <Check size={11} strokeWidth={3} />}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -4,7 +4,7 @@ export const IPC_CHANNELS = {
   // Projects
   PROJECT_LIST: 'project:list', PROJECT_GET: 'project:get',
   PROJECT_ADD: 'project:add', PROJECT_UPDATE: 'project:update',
-  PROJECT_DELETE: 'project:delete',
+  PROJECT_DELETE: 'project:delete', PROJECT_TOGGLE_PIN: 'project:togglePin',
   DETECT_PROJECT: 'project:detect', VALIDATE_PROJECT: 'project:validate',
   // Work
   START_WORK: 'work:start', STOP_WORK: 'work:stop', RUN_ONLY: 'work:run',
@@ -12,6 +12,7 @@ export const IPC_CHANNELS = {
   // Groups
   GROUP_LIST: 'group:list', GROUP_GET: 'group:get',
   GROUP_ADD: 'group:add', GROUP_UPDATE: 'group:update', GROUP_DELETE: 'group:delete',
+  GROUP_TOGGLE_PIN: 'group:togglePin',
   GROUP_START: 'group:start', GROUP_STOP: 'group:stop',
   GROUP_ADD_PROJECT: 'group:addProject', GROUP_REMOVE_PROJECT: 'group:removeProject',
   // Port

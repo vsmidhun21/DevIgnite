@@ -4,7 +4,7 @@ export class ProjectManager {
   constructor(dbPath) {
     this.db = getDb(dbPath);
     this._stmts = {
-      listAll: this.db.prepare('SELECT * FROM projects ORDER BY name ASC'),
+      listAll: this.db.prepare('SELECT * FROM projects ORDER BY isPinned DESC, name COLLATE NOCASE ASC'),
       getById: this.db.prepare('SELECT * FROM projects WHERE id = ?'),
       insert: this.db.prepare(`
         INSERT INTO projects
@@ -57,6 +57,14 @@ export class ProjectManager {
     return this.getById(id);
   }
 
+  togglePin(id) {
+    const existing = this.getById(id);
+    if (!existing) throw new Error(`Project ${id} not found`);
+    const newPin = existing.isPinned ? 0 : 1;
+    this.db.prepare('UPDATE projects SET isPinned = ?, updated_at = datetime(\'now\') WHERE id = ?').run(newPin, id);
+    return this.getById(id);
+  }
+
   _validate(data) {
     if (!data.name?.trim()) throw new Error('Project name is required');
     if (!data.path?.trim()) throw new Error('Project path is required');
@@ -81,6 +89,7 @@ export class ProjectManager {
       open_terminal: data.open_terminal != null ? (data.open_terminal ? 1 : 0) : 1,
       open_browser:  data.open_browser  != null ? (data.open_browser  ? 1 : 0) : 1,
       install_deps:  data.install_deps  != null ? (data.install_deps  ? 1 : 0) : 0,
+      isPinned:      data.isPinned != null ? (data.isPinned ? 1 : 0) : 0,
     };
   }
 
@@ -93,6 +102,7 @@ export class ProjectManager {
       startup_steps: row.startup_steps,
       open_terminal: row.open_terminal, open_browser: row.open_browser,
       install_deps: row.install_deps,
+      isPinned: row.isPinned === 1,
     };
   }
 }
