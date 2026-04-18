@@ -4,7 +4,7 @@ import LogViewer         from './LogViewer';
 import ProductivityPanel from './ProductivityPanel';
 import EnvSelector       from './EnvSelector';
 import NotesTodosPanel   from './NotesTodosPanel';
-import { GitBranch, Terminal, Globe, Code2, Play, Square } from 'lucide-react';
+import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen } from 'lucide-react';
 
 const api = window.devignite;
 
@@ -14,6 +14,9 @@ export default function ProjectDetail({
 }) {
   const [envData,  setEnvData]  = useState({ available:['dev'], files:[] });
   const [leftTab,  setLeftTab]  = useState('info');
+  const [actions, setActions] = useState([]);
+  const [newActionName, setNewActionName] = useState('');
+  const [newActionCmd, setNewActionCmd] = useState('');
   const isRunning = project.status==='running'||project.status==='starting';
 
   const steps = (() => { try { return JSON.parse(project.startup_steps||'[]'); } catch { return []; } })();
@@ -22,11 +25,25 @@ export default function ProjectDetail({
   useEffect(() => {
     if (!project.path) return;
     api.env.detect(project.path).then(setEnvData).catch(()=>{});
-  }, [project.path]);
+    api.actions.get(project.id).then(setActions).catch(()=>{});
+  }, [project.path, project.id]);
 
   const changeEnvFile = async (f) => {
     await api.projects.update(project.id, {env_file:f||null});
     onReload?.();
+  };
+
+  const addAction = async () => {
+     if(!newActionName || !newActionCmd) return;
+     const newObj = await api.actions.add(project.id, newActionName, newActionCmd);
+     setActions([...actions, newObj]);
+     setNewActionName('');
+     setNewActionCmd('');
+  };
+
+  const deleteAction = async (id) => {
+     await api.actions.delete(id);
+     setActions(actions.filter(a => a.id !== id));
   };
 
   return (
@@ -74,6 +91,9 @@ export default function ProjectDetail({
             <Globe size={11} strokeWidth={2}/> Browser
           </button>
         )}
+        <button className="action-btn" onClick={()=>api.work.openFolder(project.path)} title="Open Folder">
+          <FolderOpen size={11} strokeWidth={2}/> Folder
+        </button>
       </div>
 
       <div className="detail-body">
@@ -151,6 +171,23 @@ export default function ProjectDetail({
                   <div className="cmd-display">$ {project.command}</div>
                 </>
               )}
+            </section>
+
+            <section>
+              <div className="section-label">Actions</div>
+              <div className="actions-list" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                {actions.map(a => (
+                  <div key={a.id} className="action-badge" style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-accent)', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px 8px', fontSize: '12px', gap: '6px' }}>
+                     <button onClick={() => api.actions.run(a.id)} style={{ background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}><Play size={10}/> {a.name}</button>
+                     <button onClick={() => deleteAction(a.id)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0px 0px 0px 4px', fontSize: '14px' }}>&times;</button>
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={e => { e.preventDefault(); addAction(); }} style={{ display: 'flex', gap: '6px' }}>
+                <input type="text" placeholder="Name (e.g. Build)" value={newActionName} onChange={e => setNewActionName(e.target.value)} required style={{ flex: 1, padding: '6px 8px', background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '4px', fontSize: '12px' }} />
+                <input type="text" placeholder="Command (e.g. npm run build)" value={newActionCmd} onChange={e => setNewActionCmd(e.target.value)} required style={{ flex: 2, padding: '6px 8px', background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '4px', fontSize: '12px' }} />
+                <button type="submit" className="btn small" style={{ padding: '6px 12px' }}>Add</button>
+              </form>
             </section>
           </>}
 

@@ -18,6 +18,7 @@ import { GroupManager } from '../core/group-manager/GroupManager.js';
 import { PortManager } from '../core/port-manager/PortManager.js';
 import { GitService } from '../core/git-service/GitService.js';
 import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
+import { ActionManager } from '../core/action-manager/index.js';
 import { getDb, closeDb } from '../core/db/database.js';
 import { IPC_CHANNELS } from '../shared/constants/index.js';
 
@@ -26,7 +27,7 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow, dbPath, logsDir;
 let projectManager, configManager, timeTracker, logManager, envManager;
-let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager;
+let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
 
@@ -48,6 +49,7 @@ function initializeApp() {
   portManager = new PortManager();
   gitService = new GitService();
   notesTodosManager = new NotesTodosManager(dbPath);
+  actionManager = new ActionManager(dbPath);
 
   logManager = new LogManager(logsDir, (projectId, level, message, ts) => {
     mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, { projectId, level, message, ts });
@@ -314,6 +316,26 @@ ipcMain.handle(IPC_CHANNELS.TODO_GET, (_, { type, refId }) => notesTodosManager.
 ipcMain.handle(IPC_CHANNELS.TODO_ADD, (_, { type, refId, text }) => notesTodosManager.addTodo(type, refId, text));
 ipcMain.handle(IPC_CHANNELS.TODO_TOGGLE, (_, id) => notesTodosManager.toggleTodo(id));
 ipcMain.handle(IPC_CHANNELS.TODO_DELETE, (_, id) => notesTodosManager.deleteTodo(id));
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+ipcMain.handle('get-actions', (_, projectId) => actionManager.getActions(projectId));
+ipcMain.handle('add-action', (_, { projectId, name, command }) => actionManager.addAction(projectId, name, command));
+ipcMain.handle('delete-action', (_, id) => actionManager.deleteAction(id));
+ipcMain.handle('run-action', async (_, id) => {
+  const action = actionManager.db.prepare('SELECT * FROM actions WHERE id = ?').get(id);
+  if (!action) return { ok: false };
+  const p = projectManager.getById(action.projectId);
+  if (!p) return { ok: false };
+  const tempProject = { ...p, command: action.command, startup_steps: '[]', install_deps: 0, port: null };
+  const sessionId = crypto.randomUUID();
+  activeSessions.set(p.id, sessionId);
+  const result = await executionManager.runOnly(tempProject, sessionId);
+  if (!result.ok) activeSessions.delete(p.id);
+  return result;
+});
+ipcMain.handle('open-folder', async (_, p) => {
+  return shell.openPath(p);
+});
 
 // ── Env / Config / IDE ────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.ENV_DETECT, (_, { projectPath }) => envManager.detectEnvFiles(projectPath));

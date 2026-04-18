@@ -91,6 +91,13 @@ function runMigrations(database) {
       UNIQUE(type, refId)
     );
 
+    CREATE TABLE IF NOT EXISTS actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      command TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS todos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL,

@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('devignite', {
     openIDE:     (id) => ipcRenderer.invoke(CH.OPEN_IDE, id),
     openTerminal:(id) => ipcRenderer.invoke(CH.OPEN_TERMINAL, id),
     openBrowser: (id) => ipcRenderer.invoke(CH.OPEN_BROWSER, id),
+    openFolder:  (path) => ipcRenderer.invoke('open-folder', path),
   },
   groups: {
     list:          ()                          => ipcRenderer.invoke(CH.GROUP_LIST),
@@ -110,6 +111,12 @@ contextBridge.exposeInMainWorld('devignite', {
     add:    (type, refId, text) => ipcRenderer.invoke(CH.TODO_ADD, { type, refId, text }),
     toggle: (id)                => ipcRenderer.invoke(CH.TODO_TOGGLE, id),
     delete: (id)                => ipcRenderer.invoke(CH.TODO_DELETE, id),
+  },
+  actions: {
+    get: (projectId) => ipcRenderer.invoke('get-actions', projectId),
+    add: (projectId, name, command) => ipcRenderer.invoke('add-action', { projectId, name, command }),
+    delete: (id) => ipcRenderer.invoke('delete-action', id),
+    run: (id) => ipcRenderer.invoke('run-action', id),
   },
   on: {
     status:       (cb) => on(CH.STATUS_UPDATE, cb),
