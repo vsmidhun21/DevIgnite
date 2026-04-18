@@ -12,7 +12,8 @@ export function useMenuHandlers({
   startWork,
   stopWork,
   loadAll,
-  setReady
+  setReady,
+  clearProjectLogs
 }) {
   useEffect(() => {
     if (!window.api?.onMenu) return;
@@ -39,7 +40,7 @@ export function useMenuHandlers({
     };
     const openFolder = () => { if (selectedId) window.devignite.work.openTerminal(selectedId); };
     const openIDE = () => { if (selectedId) window.devignite.work.openIDE(selectedId); };
-    const clearLogs = () => { if (selectedId) window.devignite.logs.clear(selectedId); };
+    const clearLogs = () => { if (selectedId) clearProjectLogs(selectedId); };
 
     // ── Menu Listener ──
     const unsub = window.api.onMenu((action) => {
@@ -69,6 +70,6 @@ export function useMenuHandlers({
     };
   }, [
     selectedId, selectedGrpId, projects, setEditProject, setShowProjModal,
-    setEditGroup, setShowGrpModal, delProject, startWork, stopWork, loadAll, setReady
+    setEditGroup, setShowGrpModal, delProject, startWork, stopWork, loadAll, setReady, clearProjectLogs
   ]);
 }

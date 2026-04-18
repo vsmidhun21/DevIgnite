@@ -4,7 +4,7 @@ import { ChevronsDown, Trash2 } from 'lucide-react';
 const api = window.devignite;
 const LEVEL_CLASS = { info:'', warn:'warn', error:'error', success:'success' };
 
-export default function LogViewer({ projectId, streamedLogs }) {
+export default function LogViewer({ projectId, streamedLogs, onClearLogs }) {
   const [which,      setWhich]      = useState('current');
   const [savedLogs,  setSavedLogs]  = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -30,7 +30,11 @@ export default function LogViewer({ projectId, streamedLogs }) {
   };
 
   const clear = async () => {
-    await api.logs.clear(projectId);
+    if (onClearLogs) {
+      await onClearLogs();
+    } else {
+      await api.logs.clear(projectId);
+    }
     setSavedLogs([]);
   };
 

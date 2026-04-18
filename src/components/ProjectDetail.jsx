@@ -9,7 +9,7 @@ const api = window.devignite;
 
 export default function ProjectDetail({
   project, logs, liveSecs,
-  onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload,
+  onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload, onClearLogs
 }) {
   const [envData,  setEnvData]  = useState({ available:['dev'], files:[] });
   const [leftTab,  setLeftTab]  = useState('info');
@@ -159,7 +159,7 @@ export default function ProjectDetail({
 
         <div className="detail-right">
           <div className="section-label">Logs</div>
-          <LogViewer projectId={project.id} streamedLogs={logs}/>
+          <LogViewer projectId={project.id} streamedLogs={logs} onClearLogs={onClearLogs}/>
         </div>
       </div>
     </div>

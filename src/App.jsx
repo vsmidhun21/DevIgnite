@@ -114,6 +114,11 @@ export default function App() {
     await loadAll();
   };
 
+  const clearProjectLogs = async (id) => {
+    await api.logs.clear(id);
+    setLogs(prev => { const n={...prev}; delete n[id]; return n; });
+  };
+
   const saveGroup = async (data) => {
     if (editGroup) await api.groups.update(editGroup.id, data);
     else { const g = await api.groups.add(data); setSelectedGrpId(g.id); setSelectedId(null); }
@@ -144,7 +149,8 @@ export default function App() {
     startWork,
     stopWork,
     loadAll,
-    setReady
+    setReady,
+    clearProjectLogs
   });
 
   return (
@@ -192,6 +198,7 @@ export default function App() {
                 onDelete={() => delProject(sel.id)}
                 onSetEnv={env => setEnv(sel.id, env)}
                 onReload={loadAll}
+                onClearLogs={() => clearProjectLogs(sel.id)}
               />
             ) : (
               <div className="empty-state">
