@@ -328,9 +328,9 @@ ipcMain.handle('run-action', async (_, id) => {
   if (!p) return { ok: false };
   const tempProject = { ...p, command: action.command, startup_steps: '[]', install_deps: 0, port: null };
   const sessionId = crypto.randomUUID();
-  activeSessions.set(p.id, sessionId);
-  const result = await executionManager.runOnly(tempProject, sessionId);
-  if (!result.ok) activeSessions.delete(p.id);
+  // We don't set activeSessions here because this is an auxiliary action, 
+  // not the main project work session.
+  const result = await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
   return result;
 });
 ipcMain.handle('open-folder', async (_, p) => {
