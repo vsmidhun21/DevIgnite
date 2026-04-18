@@ -13,7 +13,6 @@ export default function ProjectDetail({
   onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload, onClearLogs
 }) {
   const [envData,  setEnvData]  = useState({ available:['dev'], files:[] });
-  const [leftTab,  setLeftTab]  = useState('info');
   const [actions, setActions] = useState([]);
   const [newActionName, setNewActionName] = useState('');
   const [newActionCmd, setNewActionCmd] = useState('');
@@ -97,17 +96,11 @@ export default function ProjectDetail({
       </div>
 
       <div className="detail-body">
-        <div className="detail-left">
-          <div className="left-tabs">
-            <button className={`left-tab ${leftTab==='info'?'active':''}`} onClick={()=>setLeftTab('info')}>Info</button>
-            <button className={`left-tab ${leftTab==='notes'?'active':''}`} onClick={()=>setLeftTab('notes')}>Notes</button>
-            <button className={`left-tab ${leftTab==='productivity'?'active':''}`} onClick={()=>setLeftTab('productivity')}>Stats</button>
-          </div>
-
-          {leftTab==='info' && <>
-            <section>
-              <div className="section-label"><Activity size={12}/> Overview</div>
-              <div className="meta-grid">
+        <div className="detail-dashboard">
+          <div className="dashboard-left">
+            <div className="dashboard-section">
+              <div className="section-title"><Activity size={12}/> Overview</div>
+              <div className="meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
                 <MetaCard icon={<Boxes size={12}/>} label="Type"   value={project.type} />
                 <MetaCard icon={<Activity size={12}/>} label="Status" value={project.status||'stopped'} accent={isRunning?'running':''} />
                 <MetaCard icon={<Hash size={12}/>} label="Port"   value={project.port?`:${project.port}`:'—'} />
@@ -115,199 +108,145 @@ export default function ProjectDetail({
                 {project.url && <MetaCard icon={<Globe size={12}/>} label="URL" value={project.url} />}
                 <MetaCard icon={<Cpu size={12}/>} label="PID"    value={project.pid??'—'} />
               </div>
-            </section>
+            </div>
 
-            {git.hasGit && (
-              <section>
-                <div className="section-label"><GitBranch size={12}/> Source Control</div>
-                <div className="git-info-block" style={{ background: 'var(--bg1)', border: '1px solid var(--b0)', borderRadius: '8px', padding: '10px' }}>
-                  <div className="git-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span className="git-key" style={{ color: 'var(--t2)', fontSize: '11px' }}>Branch</span><span className="git-val" style={{ fontWeight: 600 }}>{git.branch}{git.isDirty?' *':''}</span></div>
-                  {git.shortHash&&<div className="git-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span className="git-key" style={{ color: 'var(--t2)', fontSize: '11px' }}>Commit</span><span className="git-val mono" style={{ fontSize: '10px', background: 'var(--bg3)', padding: '1px 4px', borderRadius: '3px' }}>{git.shortHash}</span></div>}
-                  {git.changedFiles>0&&<div className="git-row" style={{ display: 'flex', justifyContent: 'space-between' }}><span className="git-key" style={{ color: 'var(--t2)', fontSize: '11px' }}>Changes</span><span className="git-val" style={{ color: 'var(--ignite)' }}>{git.changedFiles} files pending</span></div>}
-                </div>
-              </section>
-            )}
-
-            <section>
-              <div className="section-label"><Layers size={12}/> Environments</div>
-              <div className="env-row" style={{ padding: '4px 0' }}>
-                {['dev','test','staging','prod'].map(env => {
-                  const ok = envData.available.includes(env);
-                  return (
-                    <button key={env}
-                      className={`env-pill ${project.active_env===env?'active':''} ${!ok?'inactive':''}`}
-                      onClick={()=>ok&&onSetEnv(env)} disabled={!ok}
-                      style={{ 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        gap: '6px',
-                        padding: '4px 12px',
-                        borderRadius: '100px',
-                        border: project.active_env===env ? '1px solid var(--accent)' : '1px solid var(--b1)',
-                        background: project.active_env===env ? 'var(--accent-bg)' : 'transparent',
-                        color: project.active_env===env ? 'var(--accent)' : 'var(--t2)',
-                        fontSize: '11px',
-                        fontWeight: project.active_env===env ? 600 : 400,
-                        cursor: ok ? 'pointer' : 'not-allowed',
-                        opacity: ok ? 1 : 0.4
-                      }}
-                      title={ok?`Switch to ${env}`:`No .env.${env}`}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: project.active_env===env ? 'var(--accent)' : 'var(--b2)' }} />
-                      {env}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section>
-              <div className="section-label"><Braces size={12}/> Configuration</div>
-              <EnvSelector project={project} envFiles={envData.files} onChange={changeEnvFile}/>
-            </section>
-
-            <section>
-              <div className="section-label"><Command size={12}/> Execution Template</div>
-              {steps.length>0 ? (
-                <div className="steps-display" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {steps.map((s,i)=>(
-                    <div key={i} className="step-badge" style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '10px', 
-                      background: 'var(--bg1)', 
-                      border: '1px solid var(--b0)', 
-                      padding: '6px 10px', 
-                      borderRadius: '6px' 
-                    }}>
-                      <span className="step-badge-num" style={{ width: '18px', height: '18px', background: 'var(--bg3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700 }}>{i+1}</span>
-                      <span className="step-badge-label" style={{ flex: 1, fontSize: '11px', fontWeight: 600 }}>{s.label||'Step'}</span>
-                      <span className="step-badge-cmd" style={{ color: 'var(--t2)', fontSize: '10px', fontFamily: 'var(--font)' }}>$ {s.cmd}</span>
-                      {s.wait&&<span className="step-badge-wait" style={{ fontSize: '9px', background: 'var(--amber-bg)', color: 'var(--amber)', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>wait</span>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {git.hasGit && (
+                  <div className="dashboard-section">
+                    <div className="section-title"><GitBranch size={12}/> Source Control</div>
+                    <div className="git-info-block">
+                      <div className="git-row" style={{ display: 'flex', justifyContent: 'space-between' }}><span className="git-key">Branch</span><span className="git-val" style={{ fontWeight: 600 }}>{git.branch}{git.isDirty?' *':''}</span></div>
+                      {git.shortHash&&<div className="git-row" style={{ display: 'flex', justifyContent: 'space-between' }}><span className="git-key">Commit</span><span className="git-val mono" style={{ fontSize: '10px' }}>{git.shortHash}</span></div>}
+                      {git.changedFiles>0&&<div className="git-row" style={{ display: 'flex', justifyContent: 'space-between' }}><span className="git-key">Changes</span><span className="git-val" style={{ color: 'var(--ignite)', fontWeight: 600 }}>{git.changedFiles} files</span></div>}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="cmd-display" style={{ background: 'var(--bg1)', padding: '10px', borderRadius: '8px', border: '1px solid var(--b0)', fontFamily: 'var(--font)', fontSize: '11px', color: 'var(--t1)' }}>
-                   <span style={{ color: 'var(--ignite)', marginRight: '6px', fontWeight: 700 }}>$</span> {project.command}
-                </div>
-              )}
-            </section>
-
-            <section>
-              <div className="section-label"><Settings size={12}/> Custom Toolbox</div>
-              <div className="actions-container" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                {actions.length > 0 ? (
-                  actions.map(a => (
-                    <div key={a.id} className="action-row" style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      background: 'var(--bg1)', 
-                      border: '1px solid var(--b0)', 
-                      borderRadius: '8px', 
-                      padding: '8px 12px',
-                      justifyContent: 'space-between',
-                      transition: 'all 0.2s ease'
-                    }}>
-                      <div className="action-info" style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                        <span className="action-name" style={{ fontWeight: 600, fontSize: '12px' }}>{a.name}</span>
-                        <span className="action-cmd" style={{ fontSize: '10px', color: 'var(--t2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font)' }}>$ {a.command}</span>
-                      </div>
-                      <div className="action-buttons" style={{ display: 'flex', gap: '8px', marginLeft: '12px', flexShrink: 0 }}>
-                        <button 
-                          onClick={() => api.actions.run(a.id)} 
-                          className="action-run-btn"
-                          title="Run action"
-                          style={{ 
-                            background: 'var(--ignite)', 
-                            color: 'white', 
-                            border: 'none', 
-                            borderRadius: '4px', 
-                            padding: '6px 10px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '4px',
-                            cursor: 'pointer',
-                            fontSize: '11px',
-                            fontWeight: 600
-                          }}
-                        >
-                          <Play size={12} fill="currentColor"/> Run
-                        </button>
-                        <button 
-                          onClick={() => deleteAction(a.id)} 
-                          className="action-del-btn"
-                          title="Delete action"
-                          style={{ 
-                            background: 'transparent', 
-                            color: 'var(--t2)', 
-                            border: '1px solid var(--b1)', 
-                            borderRadius: '4px', 
-                            padding: '6px 8px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Trash2 size={12}/>
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ fontSize: '11px', color: 'var(--t2)', fontStyle: 'italic', padding: '4px 0' }}>No custom actions defined.</div>
-                )}
-              </div>
-              
-              <div className="add-action-form" style={{ 
-                background: 'var(--bg2)', 
-                padding: '12px', 
-                borderRadius: '8px',
-                border: '1px dashed var(--b1)'
-              }}>
-                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--t2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Add New Action</div>
-                <form onSubmit={e => { e.preventDefault(); addAction(); }} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input 
-                      type="text" 
-                      placeholder="Name (e.g. Build)" 
-                      value={newActionName} 
-                      onChange={e => setNewActionName(e.target.value)} 
-                      required 
-                      style={{ flex: 1, padding: '8px 10px', background: 'var(--bg0)', border: '1px solid var(--b1)', color: 'var(--t0)', borderRadius: '6px', fontSize: '12px' }} 
-                    />
-                    <input 
-                      type="text" 
-                      placeholder="Command (e.g. npm run build)" 
-                      value={newActionCmd} 
-                      onChange={e => setNewActionCmd(e.target.value)} 
-                      required 
-                      style={{ flex: 2, padding: '8px 10px', background: 'var(--bg0)', border: '1px solid var(--b1)', color: 'var(--t0)', borderRadius: '6px', fontSize: '12px' }} 
-                    />
                   </div>
-                  <button type="submit" className="start-work-btn" style={{ 
-                    padding: '8px 12px', 
-                    fontSize: '12px', 
-                    justifyContent: 'center',
-                    width: '100%' 
-                  }}>
-                    <Plus size={14} /> Create Action
-                  </button>
-                </form>
+                )}
+
+                <div className="dashboard-section">
+                  <div className="section-title"><Layers size={12}/> Environments</div>
+                  <div className="env-row">
+                    {['dev','test','staging','prod'].map(env => {
+                      const ok = envData.available.includes(env);
+                      return (
+                        <button key={env}
+                          className={`env-pill ${project.active_env===env?'active':''} ${!ok?'inactive':''}`}
+                          onClick={()=>ok&&onSetEnv(env)} disabled={!ok}
+                          style={{ 
+                            padding: '4px 10px',
+                            borderRadius: '100px',
+                            border: project.active_env===env ? '1px solid var(--accent)' : '1px solid var(--b1)',
+                            background: project.active_env===env ? 'var(--accent-bg)' : 'transparent',
+                            color: project.active_env===env ? 'var(--accent)' : 'var(--t2)',
+                            fontSize: '11px',
+                            fontWeight: project.active_env===env ? 600 : 400,
+                            cursor: ok ? 'pointer' : 'not-allowed',
+                            opacity: ok ? 1 : 0.4,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                        >
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: project.active_env===env ? 'var(--accent)' : 'var(--b2)' }} />
+                          {env}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="dashboard-section">
+                  <div className="section-title"><Braces size={12}/> Configuration</div>
+                  <EnvSelector project={project} envFiles={envData.files} onChange={changeEnvFile}/>
+                </div>
               </div>
-            </section>
-          </>}
 
-          {leftTab==='notes' && (
-            <NotesTodosPanel type="project" refId={project.id}/>
-          )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="dashboard-section">
+                  <div className="section-title"><Command size={12}/> Startup Template</div>
+                  {steps.length>0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      {steps.map((s,i)=>(
+                        <div key={i} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '8px', 
+                          background: 'var(--bg0)', 
+                          border: '1px solid var(--b0)', 
+                          padding: '5px 8px', 
+                          borderRadius: '6px' 
+                        }}>
+                          <span style={{ fontSize: '10px', color: 'var(--t2)', fontWeight: 700 }}>{i+1}</span>
+                          <span style={{ flex: 1, fontSize: '11px', fontWeight: 600 }}>{s.label||'Step'}</span>
+                          <span style={{ color: 'var(--t2)', fontSize: '10px', fontFamily: 'var(--font)' }}>$ {s.cmd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ background: 'var(--bg0)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--b0)', fontFamily: 'var(--font)', fontSize: '11px', color: 'var(--t1)' }}>
+                       <span style={{ color: 'var(--ignite)', marginRight: '4px', fontWeight: 700 }}>$</span> {project.command}
+                    </div>
+                  )}
+                </div>
 
-          {leftTab==='productivity' && (
-            <section><ProductivityPanel projectId={project.id}/></section>
-          )}
+                <div className="dashboard-section">
+                  <div className="section-title"><Settings size={12}/> Custom Toolbox</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {actions.map(a => (
+                      <div key={a.id} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        background: 'var(--bg2)', 
+                        border: '1px solid var(--b0)', 
+                        borderRadius: '6px', 
+                        padding: '8px 12px',
+                        justifyContent: 'space-between'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                          <span style={{ fontWeight: 600, fontSize: '12px' }}>{a.name}</span>
+                          <span style={{ fontSize: '9px', color: 'var(--t2)', fontFamily: 'var(--font)' }}>$ {a.command}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => api.actions.run(a.id)} style={{ background: 'transparent', border: '1px solid var(--ignite)', color: 'var(--ignite)', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Run</button>
+                          <button onClick={() => deleteAction(a.id)} style={{ background: 'transparent', color: 'var(--t2)', border: 'none', cursor: 'pointer', opacity: 0.6 }}><Trash2 size={12}/></button>
+                        </div>
+                      </div>
+                    ))}
+                    {actions.length === 0 && <div style={{ fontSize: '11px', color: 'var(--t2)', fontStyle: 'italic', padding: '4px 0' }}>No actions defined.</div>}
+                    
+                    <div style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px solid var(--b0)' }}>
+                      <form onSubmit={e => { e.preventDefault(); addAction(); }} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input type="text" placeholder="Name" value={newActionName} onChange={e=>setNewActionName(e.target.value)} required 
+                            style={{ flex: 1, background: 'var(--bg0)', border: '1px solid var(--b1)', color: 'var(--t0)', borderRadius: '4px', fontSize: '11px', padding: '4px 8px' }} />
+                          <input type="text" placeholder="Cmd" title="Command" value={newActionCmd} onChange={e=>setNewActionCmd(e.target.value)} required 
+                            style={{ flex: 2, background: 'var(--bg0)', border: '1px solid var(--b1)', color: 'var(--t0)', borderRadius: '4px', fontSize: '11px', padding: '4px 8px' }} />
+                        </div>
+                        <button type="submit" className="btn small primary" style={{ width: '100%', fontSize: '11px' }}><Plus size={12}/> Create Action</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-section">
+              <div className="section-title"><Activity size={12}/> Performance History</div>
+              <ProductivityPanel projectId={project.id}/>
+            </div>
+          </div>
+
+          <div className="dashboard-right">
+            <div className="dashboard-section" style={{ height: '100%', gap: 0 }}>
+               <NotesTodosPanel type="project" refId={project.id}/>
+            </div>
+          </div>
         </div>
 
-        <div className="detail-right">
-          <div className="section-label">Logs</div>
+        <div className="detail-terminal">
+          <div className="log-toolbar" style={{ padding: '6px 16px', background: 'var(--bg1)', borderBottom: '1px solid var(--b0)' }}>
+            <div className="section-title"><TerminalSquare size={12}/> Console Output</div>
+          </div>
           <LogViewer projectId={project.id} streamedLogs={logs} onClearLogs={onClearLogs}/>
         </div>
       </div>
