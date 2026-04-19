@@ -2531,3 +2531,95 @@ body {
   gap: 7px;
   color: var(--amber)
 }
+
+/* ── Todos List ────────────────────────────────────────────────────────────────── */
+.todos-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg1);
+  border: 1px solid var(--b0);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  transition: all .2s ease;
+  animation: todo-pop 0.3s ease-out forwards;
+}
+
+.todo-item:hover {
+  background: var(--bg2);
+  transform: translateX(2px);
+}
+
+.todo-item.completed {
+  opacity: 0.6;
+}
+
+.todo-item.completed .todo-text {
+  text-decoration: line-through;
+  color: var(--t2);
+}
+
+.todo-check-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--t2);
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease;
+}
+
+.todo-item.completed .todo-check-btn {
+  color: var(--green);
+}
+
+.todo-check-btn:active {
+  transform: scale(0.85);
+}
+
+.todo-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--t0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-delete-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.todo-item:hover .todo-delete-btn {
+  opacity: 1;
+  color: var(--red);
+}
+
+@keyframes todo-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

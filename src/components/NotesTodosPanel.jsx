@@ -95,26 +95,25 @@ export default function NotesTodosPanel({ type, refId }) {
             <button className="btn primary" onClick={addTodo}><Plus size={14} strokeWidth={2}/></button>
           </div>
           
-          <div className="todos-list" style={{maxHeight: 240, overflowY: 'auto', paddingRight:4}}>
-            {todos.length === 0 && <div className="checklist-empty" style={{border:'1px dashed var(--b1)', borderRadius:6}}>No todos yet.</div>}
-            {todos.map(t => (
-              <div key={t.id} className="todo-item" style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'var(--bg1)', border:'1px solid var(--b0)', borderRadius:6, marginBottom:4, transition:'all .15s'}}>
-                <button 
-                  className="icon-btn" 
-                  style={{width: 20, height: 20, border: 'none', background: 'none', color: t.completed ? 'var(--green)' : 'var(--t2)', padding:0}}
-                  onClick={() => toggleTodo(t.id)}
-                >
-                  {t.completed ? <CheckSquare size={14} /> : <Square size={14} />}
-                </button>
-                <span style={{flex:1, fontSize: 12, color: t.completed ? 'var(--t2)' : 'var(--t0)', textDecoration: t.completed ? 'line-through' : 'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                  {t.text}
-                </span>
-                <button className="icon-btn danger" style={{width:24, height:24, border:'none', background:'none'}} onClick={() => deleteTodo(t.id)}>
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
+            <div className="todos-list">
+              {todos.length === 0 && <div className="checklist-empty">No todos yet.</div>}
+              {todos.map(t => (
+                <div key={t.id} className={`todo-item ${t.completed ? 'completed' : ''}`}>
+                  <button 
+                    className="todo-check-btn" 
+                    onClick={() => toggleTodo(t.id)}
+                  >
+                    {t.completed ? <CheckSquare size={14} /> : <Square size={14} />}
+                  </button>
+                  <span className="todo-text">
+                    {t.text}
+                  </span>
+                  <button className="todo-delete-btn" onClick={() => deleteTodo(t.id)}>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
         </div>
       </section>
     </div>
