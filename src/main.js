@@ -250,6 +250,7 @@ ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
   activeSessions.set(projectId, sessionId);
   const result = await executionManager.runOnly(p, sessionId);
   if (!result.ok) activeSessions.delete(projectId);
+  else settingsManager.incrementProjectLaunchCount();
   return result;
 });
 ipcMain.handle(IPC_CHANNELS.OPEN_IDE, (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openIDE(p); return { ok: !!p }; });
