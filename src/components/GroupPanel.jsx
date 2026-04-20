@@ -110,9 +110,9 @@ export default memo(function GroupPanel({ group, projects, onEdit, onDelete, onP
       </div>
 
       <div className="group-content" style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden'}}>
-        <div style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minHeight:150}}>
+        <div style={{flex: '0 1 auto', display:'flex', flexDirection:'column', overflow:'hidden', maxHeight: '220px'}}>
           <div className="section-label" style={{padding:'10px 20px 0'}}>Projects</div>
-          <div className="group-members" style={{flex:1, overflowY:'auto', padding:'10px 20px'}}>
+          <div className="group-members" style={{overflowY:'auto', padding:'10px 20px'}}>
             {members.length===0&&(
               <div className="steps-empty">
                 No projects. Edit to add projects.
@@ -131,13 +131,14 @@ export default memo(function GroupPanel({ group, projects, onEdit, onDelete, onP
 
         <div style={{height:1, background:'var(--b0)', margin:'0 20px'}} />
 
-        <div style={{height:'360px', overflow:'hidden', display:'flex', flexDirection:'column'}}>
+        <div style={{flex: 1, overflow:'hidden', display:'flex', flexDirection:'column'}}>
           <div className="section-label" style={{padding:'10px 20px 0'}}>Notes & Tasks</div>
           <div style={{flex:1, overflowY:'auto', padding:'0 20px 20px'}}>
             <NotesTodosPanel type="workspace" refId={group.id} />
           </div>
         </div>
       </div>
+
     </div>
   );
 });
