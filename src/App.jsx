@@ -8,6 +8,7 @@ import PortConflictModal from './components/PortConflictModal';
 import Header            from './components/Header';
 import StatusBar         from './components/StatusBar';
 import Loader            from './components/Loader';
+import SponsorshipPopup  from './components/SponsorshipPopup';
 import { useMenuHandlers } from './menuHandlers';
 
 const api = window.devignite;
@@ -275,6 +276,7 @@ export default function App() {
         {portConflict && (
           <PortConflictModal conflict={portConflict} onResolved={resolvePort} onCancel={()=>{setPortConflict(null);setPendingStart(null);}} />
         )}
+        <SponsorshipPopup />
       </div>
     </>
   );

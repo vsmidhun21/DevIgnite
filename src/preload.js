@@ -23,6 +23,7 @@ const CH = {
   TODO_TOGGLE:'todo:toggle', TODO_DELETE:'todo:delete',
   LOG_STREAM:'log:stream', STATUS_UPDATE:'status:update', TICK_UPDATE:'tick:update',
   PORT_CONFLICT:'port:conflict', SESSION_ADD_MANUAL:'session:addManual',
+  APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
 };
 contextBridge.exposeInMainWorld('devignite', {
   pickFolder:  ()        => ipcRenderer.invoke('dialog:openFolder'),
@@ -120,6 +121,13 @@ contextBridge.exposeInMainWorld('devignite', {
     add: (projectId, name, command) => ipcRenderer.invoke('add-action', { projectId, name, command }),
     delete: (id) => ipcRenderer.invoke('delete-action', id),
     run: (id) => ipcRenderer.invoke('run-action', id),
+  },
+  util: {
+    openExternal: (url) => ipcRenderer.invoke('open-url', url),
+  },
+  settings: {
+    get: () => ipcRenderer.invoke(CH.APP_SETTINGS_GET),
+    update: (status) => ipcRenderer.invoke(CH.APP_SETTINGS_UPDATE, status),
   },
   on: {
     status:       (cb) => on(CH.STATUS_UPDATE, cb),

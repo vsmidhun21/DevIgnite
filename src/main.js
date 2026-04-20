@@ -19,6 +19,7 @@ import { PortManager } from '../core/port-manager/PortManager.js';
 import { GitService } from '../core/git-service/GitService.js';
 import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
 import { ActionManager } from '../core/action-manager/index.js';
+import { SettingsManager } from '../core/settings-manager/SettingsManager.js';
 import { getDb, closeDb } from '../core/db/database.js';
 import { IPC_CHANNELS } from '../shared/constants/index.js';
 
@@ -26,7 +27,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow, dbPath, logsDir;
-let projectManager, configManager, timeTracker, logManager, envManager;
+let projectManager, configManager, timeTracker, logManager, envManager, settingsManager;
 let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
@@ -50,6 +51,9 @@ function initializeApp() {
   gitService = new GitService();
   notesTodosManager = new NotesTodosManager(dbPath);
   actionManager = new ActionManager(dbPath);
+  settingsManager = new SettingsManager(dbPath);
+
+  settingsManager.incrementLaunchCount();
 
   logManager = new LogManager(logsDir, (projectId, level, message, ts) => {
     mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, { projectId, level, message, ts });
@@ -147,6 +151,9 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'Close', click: () => mainWindow?.close() }
     ],
     Help: [
+      { label: 'Support DevIgnite', click: () => shell.openExternal('https://buymeacoffee.com/midhun.v.s') },
+      { label: 'Star on GitHub', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite') },
+      { type: 'separator' },
       { label: 'About', click: () => shell.openExternal('https://devignite.web.app/#how-it-works') },
       { label: 'Report Issue', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite/issues') },
       { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') }
@@ -222,6 +229,7 @@ async function _doStart(projectId) {
   activeSessions.set(projectId, sessionId);
   const result = await executionManager.startWork(project, sessionId);
   if (!result.ok) activeSessions.delete(projectId);
+  else settingsManager.incrementProjectLaunchCount();
   return result;
 }
 
@@ -242,6 +250,7 @@ ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
   activeSessions.set(projectId, sessionId);
   const result = await executionManager.runOnly(p, sessionId);
   if (!result.ok) activeSessions.delete(projectId);
+  else settingsManager.incrementProjectLaunchCount();
   return result;
 });
 ipcMain.handle(IPC_CHANNELS.OPEN_IDE, (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openIDE(p); return { ok: !!p }; });
@@ -330,6 +339,11 @@ ipcMain.handle(IPC_CHANNELS.TODO_DELETE, (_, id) => notesTodosManager.deleteTodo
 ipcMain.handle('get-actions', (_, projectId) => actionManager.getActions(projectId));
 ipcMain.handle('add-action', (_, { projectId, name, command }) => actionManager.addAction(projectId, name, command));
 ipcMain.handle('delete-action', (_, id) => actionManager.deleteAction(id));
+
+// ── App Settings ──────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_GET, () => settingsManager.getSettings());
+ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_UPDATE, (_, status) => settingsManager.updateSponsorshipStatus(status));
+
 ipcMain.handle('run-action', async (_, id) => {
   const action = actionManager.db.prepare('SELECT * FROM actions WHERE id = ?').get(id);
   if (!action) return { ok: false };
@@ -342,8 +356,9 @@ ipcMain.handle('run-action', async (_, id) => {
   const result = await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
   return result;
 });
-ipcMain.handle('open-folder', async (_, p) => {
-  return shell.openPath(p);
+ipcMain.handle('open-url', async (_, url) => {
+  if (url) shell.openExternal(url);
+  return { ok: true };
 });
 
 // ── Env / Config / IDE ────────────────────────────────────────────────────────
