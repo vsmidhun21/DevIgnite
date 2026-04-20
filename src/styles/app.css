@@ -2622,4 +2622,95 @@ body {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-}
+}
+
+/* ── Sponsorship Toast ───────────────────────────────────────────────────────── */
+.sponsorship-toast {
+  position: fixed;
+  bottom: 35px;
+  right: 15px;
+  z-index: 1000;
+  background: var(--bg1);
+  border: 1px solid var(--b1);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  width: 320px;
+  padding: 14px;
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.sponsorship-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sponsorship-icon {
+  display: flex;
+  justify-content: center;
+}
+
+.sponsorship-text p {
+  font-size: 11px;
+  color: var(--t1);
+  text-align: center;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sponsorship-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.sponsorship-actions button {
+  padding: 5px 10px;
+  font-size: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--b0);
+  background: var(--bg0);
+  color: var(--t1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+}
+
+.sponsorship-actions button:hover {
+  background: var(--bg2);
+  color: var(--t0);
+  border-color: var(--b1);
+}
+
+.sponsorship-actions .btn-support {
+  background: var(--ignite);
+  color: #fff;
+  border-color: var(--ignite);
+}
+
+.sponsorship-actions .btn-support:hover {
+  opacity: 0.9;
+  background: var(--ignite);
+}
+
+.sponsorship-actions .btn-star {
+  border-color: #f1c40f;
+  color: #f1c40f;
+}
+
+.sponsorship-actions .btn-star:hover {
+  background: rgba(241, 196, 15, 0.1);
+}
+
+.sponsorship-actions .btn-dismiss {
+  padding: 5px;
+}
+

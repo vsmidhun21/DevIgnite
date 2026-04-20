@@ -106,6 +106,18 @@ function runMigrations(database) {
       completed INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      launch_count INTEGER DEFAULT 0,
+      project_launch_count INTEGER DEFAULT 0,
+      sponsorship_status TEXT DEFAULT 'pending',
+      session_count_since_later INTEGER DEFAULT 0,
+      last_shown_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    INSERT OR IGNORE INTO app_settings (id, launch_count) VALUES (1, 0);
   `);
 
   const safe = (sql) => { try { database.exec(sql); } catch {} };
