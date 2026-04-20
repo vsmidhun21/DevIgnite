@@ -17,6 +17,7 @@
     "better-sqlite3": "^9.6.0",
     "electron-squirrel-startup": "^1.0.1",
     "lucide-react": "^0.344.0",
+    "recharts": "^3.8.1",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
