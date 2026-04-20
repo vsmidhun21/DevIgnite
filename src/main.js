@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
@@ -100,6 +100,9 @@ ipcMain.handle('dialog:openFile', async (_, { filters } = {}) => {
   const r = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: filters || [] });
   return r.canceled ? null : r.filePaths[0];
 });
+ipcMain.handle('open-folder', async (_, path) => {
+  shell.openPath(path);
+});
 
 // ── Window Controls ───────────────────────────────────────────────────────────
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
@@ -110,8 +113,6 @@ ipcMain.on('window:maximize', () => {
 });
 ipcMain.on('window:close', () => mainWindow?.close());
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() || false);
-
-import { shell } from 'electron';
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
 ipcMain.on('menu:popup', (event, menuName) => {
