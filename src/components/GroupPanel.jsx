@@ -109,35 +109,46 @@ export default memo(function GroupPanel({ group, projects, onEdit, onDelete, onP
         )}
       </div>
 
-      <div className="group-content" style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden'}}>
-        <div style={{flex: '0 1 auto', display:'flex', flexDirection:'column', overflow:'hidden', maxHeight: '220px'}}>
-          <div className="section-label" style={{padding:'10px 20px 0'}}>Projects</div>
-          <div className="group-members" style={{overflowY:'auto', padding:'10px 20px'}}>
-            {members.length===0&&(
-              <div className="steps-empty">
-                No projects. Edit to add projects.
-              </div>
-            )}
-            {members.map(p => (
-              <GroupMemberCard 
-                key={p.id} 
-                p={p} 
-                onSelect={onProjectSelect} 
-                result={results.find(r=>r.projectId===p.id)} 
-              />
-            ))}
+      <div className="group-content" style={{ flex: 1, display: 'flex', flexDirection: 'row', gap: '20px', padding: '0 20px 20px', overflow: 'hidden' }}>
+        {/* Left Column: Projects & Work Intelligence */}
+        <div className="group-col-left" style={{ flex: '1.1', display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'hidden' }}>
+          <div style={{ flex: '0 1 auto', display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '220px', background: 'var(--bg1)', border: '1px solid var(--b0)', borderRadius: '10px' }}>
+            <div className="section-label" style={{ padding: '10px 14px 0', fontSize: '10px' }}>Projects</div>
+            <div className="group-members" style={{ overflowY: 'auto', padding: '10px 14px' }}>
+              {members.length === 0 && (
+                <div className="steps-empty">
+                  No projects. Edit to add projects.
+                </div>
+              )}
+              {members.map(p => (
+                <GroupMemberCard
+                  key={p.id}
+                  p={p}
+                  onSelect={onProjectSelect}
+                  result={results.find(r => r.projectId === p.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+            <NotesTodosPanel type="workspace" refId={group.id} onlySection="insights" />
           </div>
         </div>
 
-        <div style={{height:1, background:'var(--b0)', margin:'0 20px'}} />
-
-        <div style={{flex: 1, overflow:'hidden', display:'flex', flexDirection:'column'}}>
-          <div className="section-label" style={{padding:'10px 20px 0'}}>Notes & Tasks</div>
-          <div style={{flex:1, overflowY:'auto', padding:'0 20px 20px'}}>
-            <NotesTodosPanel type="workspace" refId={group.id} />
+        {/* Right Column: Notes & Todos */}
+        <div className="group-col-right" style={{ flex: '0.9', display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ background: 'var(--bg1)', border: '1px solid var(--b0)', borderRadius: '12px', padding: '16px' }}>
+              <NotesTodosPanel type="workspace" refId={group.id} onlySection="notes" />
+            </div>
+            <div style={{ background: 'var(--bg1)', border: '1px solid var(--b0)', borderRadius: '12px', padding: '16px' }}>
+              <NotesTodosPanel type="workspace" refId={group.id} onlySection="todos" />
+            </div>
           </div>
         </div>
       </div>
+
 
     </div>
   );
