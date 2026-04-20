@@ -312,6 +312,10 @@ ipcMain.handle(IPC_CHANNELS.LOG_CLEAR, (_, projectId) => {
 ipcMain.handle(IPC_CHANNELS.SESSION_HISTORY, (_, { projectId, limit }) => timeTracker.getHistory(projectId, limit || 20));
 ipcMain.handle(IPC_CHANNELS.SESSION_TODAY, (_, projectId) => ({ seconds: timeTracker.getTodayTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getTodayTotal(projectId)) }));
 ipcMain.handle(IPC_CHANNELS.SESSION_ALL_TIME, (_, projectId) => ({ seconds: timeTracker.getAllTimeTotal(projectId), formatted: timeTracker.formatDuration(timeTracker.getAllTimeTotal(projectId)) }));
+ipcMain.handle(IPC_CHANNELS.SESSION_ADD_MANUAL, (_, { projectId, seconds, note }) => {
+  timeTracker.addManualEntry(projectId, seconds, note);
+  return { ok: true };
+});
 ipcMain.handle(IPC_CHANNELS.PRODUCTIVITY_STATS, (_, { projectId }) => timeTracker.getProductivityStats(projectId || null));
 
 // ── Notes & Todos ─────────────────────────────────────────────────────────────

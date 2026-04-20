@@ -143,7 +143,7 @@ export class TimeTracker {
     const week     = projectId ? this.getWeekTotal(projectId) : this.getWeekTotalAll();
     const allTime  = projectId ? this.getAllTimeTotal(projectId) : 0;
     const streak   = this.getStreak(projectId);
-    const daily    = projectId ? this.getDailyBreakdown(projectId, 14) : this.getDailyBreakdownAll(14);
+    const daily    = projectId ? this.getDailyBreakdown(projectId, 30) : this.getDailyBreakdownAll(30);
 
     return {
       todaySeconds:   projectId ? today : this._getTodayAll(),
@@ -177,5 +177,13 @@ export class TimeTracker {
       SELECT COALESCE(SUM(duration_seconds),0) AS total
       FROM sessions WHERE date(started_at)=date('now') AND status='completed'
     `).get()?.total ?? 0;
+  }
+
+  addManualEntry(projectId, seconds, note = '') {
+    const ts = new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO sessions (project_id, session_id, started_at, ended_at, duration_seconds, env_used, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'completed')
+    `).run(projectId, `manual-${Date.now()}`, ts, ts, seconds, note ? `Manual: ${note}` : 'Manual Entry');
   }
 }

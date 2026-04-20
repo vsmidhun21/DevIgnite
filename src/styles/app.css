@@ -908,7 +908,7 @@ body {
 .detail-dashboard {
   flex: 1;
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  grid-template-columns: 1.6fr 1fr;
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: thin;

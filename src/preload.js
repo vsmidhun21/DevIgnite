@@ -22,7 +22,7 @@ const CH = {
   TODO_GET:'todo:get', TODO_ADD:'todo:add',
   TODO_TOGGLE:'todo:toggle', TODO_DELETE:'todo:delete',
   LOG_STREAM:'log:stream', STATUS_UPDATE:'status:update', TICK_UPDATE:'tick:update',
-  PORT_CONFLICT:'port:conflict',
+  PORT_CONFLICT:'port:conflict', SESSION_ADD_MANUAL:'session:addManual',
 };
 contextBridge.exposeInMainWorld('devignite', {
   pickFolder:  ()        => ipcRenderer.invoke('dialog:openFolder'),
@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('devignite', {
     history:    (projectId, limit) => ipcRenderer.invoke(CH.SESSION_HISTORY, { projectId, limit }),
     today:      (projectId)        => ipcRenderer.invoke(CH.SESSION_TODAY, projectId),
     allTime:    (projectId)        => ipcRenderer.invoke(CH.SESSION_ALL_TIME, projectId),
+    addManual:  (projectId, seconds, note) => ipcRenderer.invoke(CH.SESSION_ADD_MANUAL, { projectId, seconds, note }),
     productivity:(projectId)       => ipcRenderer.invoke(CH.PRODUCTIVITY_STATS, { projectId }),
   },
   env: {

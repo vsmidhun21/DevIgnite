@@ -29,6 +29,7 @@ export const IPC_CHANNELS = {
   // Sessions / Productivity
   SESSION_HISTORY: 'session:history',
   SESSION_TODAY: 'session:today', SESSION_ALL_TIME: 'session:alltime',
+  SESSION_ADD_MANUAL: 'session:addManual',
   PRODUCTIVITY_STATS: 'productivity:stats',
   // Notes & Todos
   NOTE_GET: 'note:get', NOTE_SAVE: 'note:save',
