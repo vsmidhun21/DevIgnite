@@ -167,13 +167,29 @@ ipcMain.on('menu:popup', (event, menuName) => {
 
 
 // ── Projects ──────────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () => {
+ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, async () => {
   const projects = projectManager.listAll();
-  return projects.map(p => {
+  
+  // Use Promise.all to fetch git info in parallel without blocking main thread
+  const projectsWithInfo = await Promise.all(projects.map(async (p) => {
     const cached = gitCache.get(p.path);
-    const gitInfo = cached && (Date.now() - cached.ts) < 10000
-      ? cached.info
-      : (() => { const info = gitService.getInfo(p.path); gitCache.set(p.path, { info, ts: Date.now() }); return info; })();
+    // Cache for 30s instead of 10s for better performance
+    if (cached && (Date.now() - cached.ts) < 30000) {
+      return {
+        ...p,
+        status: processManager.getStatus(p.id),
+        pid: processManager.getInfo(p.id)?.pid ?? null,
+        uptimeMs: processManager.getInfo(p.id)?.uptimeMs ?? 0,
+        sessionId: activeSessions.get(p.id) ?? null,
+        todaySecs: timeTracker.getTodayTotal(p.id),
+        git: cached.info,
+      };
+    }
+
+    // Fetch async
+    const gitInfo = await gitService.getInfoAsync(p.path);
+    gitCache.set(p.path, { info: gitInfo, ts: Date.now() });
+
     return {
       ...p,
       status: processManager.getStatus(p.id),
@@ -183,8 +199,11 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () => {
       todaySecs: timeTracker.getTodayTotal(p.id),
       git: gitInfo,
     };
-  });
+  }));
+
+  return projectsWithInfo;
 });
+
 ipcMain.handle(IPC_CHANNELS.PROJECT_GET, (_, id) => projectManager.getById(id));
 ipcMain.handle(IPC_CHANNELS.PROJECT_ADD, (_, data) => projectManager.add(data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE, (_, { id, data }) => projectManager.update(id, data));

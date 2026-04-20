@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect, memo } from 'react';
 import { Search, X, Plus, Star } from 'lucide-react';
+
+const api = window.devignite;
 
 const fmt = (s) => {
   if (!s) return null;
@@ -7,20 +9,70 @@ const fmt = (s) => {
   return [h>0&&`${h}h`,m>0&&`${m}m`,`${sec}s`].filter(Boolean).join(' ');
 };
 
-export default function Sidebar({
+// ProjectItem handles its own tick updates to prevent Sidebar-wide re-renders
+const ProjectItem = memo(({ p, isSelected, onSelect, onTogglePin, status }) => {
+  const [live, setLive] = useState(null);
+
+  useEffect(() => {
+    if (status !== 'running') {
+      setLive(null);
+      return;
+    }
+    const unsub = api.on.tick(({ projectId, liveSecs }) => {
+      if (projectId === p.id) setLive(liveSecs);
+    });
+    return () => unsub?.();
+  }, [p.id, status]);
+
+  const git = p.git;
+
+  return (
+    <li className={`project-item ${isSelected?'active':''}`} onClick={() => onSelect(p.id)}>
+      <span className={`status-dot ${status||'stopped'}`}/>
+      <div className="proj-info">
+        <div className="proj-name-row">
+          <span className="proj-name">{p.name}</span>
+          {git?.hasGit && git.branch && (
+            <span className="proj-branch">{git.branch}{git.isDirty?'*':''}</span>
+          )}
+        </div>
+        <div className="proj-meta-row">
+          <span className="type-badge-sm">{p.type?.split(' ')[0]}</span>
+          {live != null && status === 'running'
+            ? <span className="proj-timer">{fmt(live)}</span>
+            : p.todaySecs > 0
+              ? <span className="proj-today">{fmt(p.todaySecs)}</span>
+              : null}
+        </div>
+      </div>
+      <button className={`pin-btn ${p.isPinned ? 'pinned' : ''}`} onClick={(e) => { e.stopPropagation(); onTogglePin(p.id, e); }} title="Pin project">
+        <Star size={12} strokeWidth={2.5} fill={p.isPinned ? 'currentColor' : 'none'} />
+      </button>
+    </li>
+  );
+});
+
+export default memo(function Sidebar({
   projects, groups, selectedId, selectedGroupId,
-  ticks, onSelect, onSelectGroup, onAdd, onAddGroup,
+  onSelect, onSelectGroup, onAdd, onAddGroup,
   onTogglePinProject, onTogglePinGroup
 }) {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const filtered = projects.filter(p =>
-    !search ||
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.type?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Debounce search effect
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const running = projects.filter(p => p.status === 'running').length;
+  const filtered = useMemo(() => projects.filter(p =>
+    !debouncedSearch ||
+    p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.type?.toLowerCase().includes(debouncedSearch.toLowerCase())
+  ), [projects, debouncedSearch]);
+
+  const runningCount = useMemo(() => projects.filter(p => p.status === 'running').length, [projects]);
 
   return (
     <aside className="sidebar">
@@ -70,7 +122,7 @@ export default function Sidebar({
                   <span className="proj-name">{g.name}</span>
                   <span className="proj-today">{gps.length} projects</span>
                 </div>
-                <button className={`pin-btn ${g.isPinned ? 'pinned' : ''}`} onClick={(e) => onTogglePinGroup?.(g.id, e)} title="Pin workspace">
+                <button className={`pin-btn ${g.isPinned ? 'pinned' : ''}`} onClick={(e) => { e.stopPropagation(); onTogglePinGroup?.(g.id, e); }} title="Pin workspace">
                   <Star size={12} strokeWidth={2.5} fill={g.isPinned ? 'currentColor' : 'none'} />
                 </button>
                 <span className={`group-status-dot ${allRun?'running':anyRun?'partial':''}`}/>
@@ -83,7 +135,7 @@ export default function Sidebar({
       <div className="sidebar-section flex-1">
         <div className="sidebar-section-header">
           <span className="sidebar-section-label">
-            Projects {search ? `(${filtered.length})` : running > 0 ? `· ${running} running` : ''}
+            Projects {search ? `(${filtered.length})` : runningCount > 0 ? `· ${runningCount} running` : ''}
           </span>
           <button className="btn-add-inline" onClick={onAdd} title="Add project">
             <Plus size={11} strokeWidth={2.5}/>
@@ -91,37 +143,17 @@ export default function Sidebar({
         </div>
 
         <ul className="project-list">
-          {filtered.map(p => {
-            const live = ticks?.[p.id];
-            const git  = p.git;
-            return (
-              <li key={p.id}
-                className={`project-item ${p.id===selectedId?'active':''}`}
-                onClick={() => onSelect(p.id)}>
-                <span className={`status-dot ${p.status||'stopped'}`}/>
-                <div className="proj-info">
-                  <div className="proj-name-row">
-                    <span className="proj-name">{p.name}</span>
-                    {git?.hasGit && git.branch && (
-                      <span className="proj-branch">{git.branch}{git.isDirty?'*':''}</span>
-                    )}
-                  </div>
-                  <div className="proj-meta-row">
-                    <span className="type-badge-sm">{p.type?.split(' ')[0]}</span>
-                    {live != null && p.status === 'running'
-                      ? <span className="proj-timer">{fmt(live)}</span>
-                      : p.todaySecs > 0
-                        ? <span className="proj-today">{fmt(p.todaySecs)}</span>
-                        : null}
-                  </div>
-                </div>
-                <button className={`pin-btn ${p.isPinned ? 'pinned' : ''}`} onClick={(e) => onTogglePinProject?.(p.id, e)} title="Pin project">
-                  <Star size={12} strokeWidth={2.5} fill={p.isPinned ? 'currentColor' : 'none'} />
-                </button>
-              </li>
-            );
-          })}
-          {filtered.length === 0 && search && (
+          {filtered.map(p => (
+            <ProjectItem 
+              key={p.id} 
+              p={p} 
+              isSelected={p.id===selectedId}
+              onSelect={onSelect}
+              onTogglePin={onTogglePinProject}
+              status={p.status}
+            />
+          ))}
+          {filtered.length === 0 && debouncedSearch && (
             <li className="proj-empty">No matches</li>
           )}
         </ul>
@@ -134,4 +166,5 @@ export default function Sidebar({
       )}
     </aside>
   );
-}
+});
+
