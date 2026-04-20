@@ -293,10 +293,10 @@ npm start
 
 ## License
 
-[MIT](https://github.com/vsmidhun21/DevIgnite/blob/master/LICENSE) © 2026 [Midhun V S](https://github.com/vsmidhun21)
+[MIT](https://github.com/vsmidhun21/DevIgnite/blob/master/LICENSE) © 2026 [Midhun V S](https://vsmidhun21.github.io)
 
 ---
 
 <div align="center">
-  <sub>Built with ⚡ by <a href="https://vsmidhun21.github.io">Midhun V S</a> &nbsp;·&nbsp; <a href="https://github.com/vsmidhun21/DevIgnite/issues">Report a bug</a> &nbsp;·&nbsp; <a href="https://github.com/vsmidhun21/DevIgnite/issues">Request a feature</a></sub>
+  <sub>Built with ⚡ by Midhun V S &nbsp;·&nbsp; <a href="https://github.com/vsmidhun21/DevIgnite/issues">Report a bug</a> &nbsp;·&nbsp; <a href="https://github.com/vsmidhun21/DevIgnite/issues">Request a feature</a></sub>
 </div>
