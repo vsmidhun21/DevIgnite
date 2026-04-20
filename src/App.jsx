@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import Sidebar           from './components/Sidebar';
 import ProjectDetail     from './components/ProjectDetail';
 import GroupPanel        from './components/GroupPanel';
@@ -13,6 +13,13 @@ import { useMenuHandlers } from './menuHandlers';
 
 const api = window.devignite;
 
+// Memoize components to prevent parent re-renders from affecting them
+const MemoSidebar = memo(Sidebar);
+const MemoProjectDetail = memo(ProjectDetail);
+const MemoGroupPanel = memo(GroupPanel);
+const MemoHeader = memo(Header);
+const MemoStatusBar = memo(StatusBar);
+
 export default function App() {
   const [ready,         setReady]         = useState(false);
   const [projects,      setProjects]      = useState([]);
@@ -24,8 +31,6 @@ export default function App() {
   const [editProject,   setEditProject]   = useState(null);
   const [editGroup,     setEditGroup]     = useState(null);
   const [statusMsg,     setStatusMsg]     = useState('Ready');
-  const [logs,          setLogs]          = useState({});
-  const [ticks,         setTicks]         = useState({});
   const [portConflict,  setPortConflict]  = useState(null);
   const [pendingStart,  setPendingStart]  = useState(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -47,42 +52,43 @@ export default function App() {
   useEffect(() => {
     loadAll().then(() => setReady(true));
 
-    const u1 = api.on.logStream(data => {
-      setLogs(prev => ({
-        ...prev,
-        [data.projectId]: [...(prev[data.projectId]||[]).slice(-500), data],
-      }));
-    });
-    const u2 = api.on.status(({ projectId, status, pid }) => {
+    const u1 = api.on.status(({ projectId, status, pid }) => {
       setProjects(prev => {
-        const name = prev.find(p=>p.id===projectId)?.name||`#${projectId}`;
+        const proj = prev.find(p=>p.id===projectId);
+        if (!proj) return prev;
+        const name = proj.name||`#${projectId}`;
         const msgs = { running:`${name} running${pid?` · PID ${pid}`:''}`, stopped:`${name} stopped`, error:`${name} error`, starting:`${name} starting…` };
         if (msgs[status]) setStatusMsg(msgs[status]);
         return prev.map(p => p.id===projectId ? {...p,status,pid} : p);
       });
     });
-    const u3 = api.on.tick(({ projectId, liveSecs }) => {
-      setTicks(prev => ({...prev,[projectId]:liveSecs}));
-    });
-    const u4 = api.on.portConflict(conflict => {
+    const u2 = api.on.portConflict(conflict => {
       setPortConflict(conflict);
       setPendingStart(conflict.projectId);
     });
 
-    unsubRef.current = [u1,u2,u3,u4];
+    unsubRef.current = [u1, u2];
     return () => unsubRef.current.forEach(fn=>fn?.());
   }, [loadAll]);
 
   useEffect(() => {
+    let frameId;
     const handleMouseMove = (e) => {
       if (!isResizing) return;
-      let newWidth = e.clientX;
-      if (newWidth < 180) newWidth = 180;
-      if (newWidth > 600) newWidth = 600;
-      setSidebarWidth(newWidth);
-      localStorage.setItem('sidebarWidth', newWidth);
+      if (frameId) cancelAnimationFrame(frameId);
+      
+      frameId = requestAnimationFrame(() => {
+        let newWidth = e.clientX;
+        if (newWidth < 180) newWidth = 180;
+        if (newWidth > 600) newWidth = 600;
+        setSidebarWidth(newWidth);
+      });
     };
-    const handleMouseUp = () => setIsResizing(false);
+    
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      localStorage.setItem('sidebarWidth', sidebarWidth);
+    };
 
     if (isResizing) {
       window.addEventListener('mousemove', handleMouseMove);
@@ -96,8 +102,9 @@ export default function App() {
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      if (frameId) cancelAnimationFrame(frameId);
     };
-  }, [isResizing]);
+  }, [isResizing, sidebarWidth]);
 
   const startWork = async (id) => {
     const r = await api.work.start(id);
@@ -108,7 +115,6 @@ export default function App() {
   const stopWork = async (id) => {
     const r = await api.work.stop(id);
     if (r?.duration) setStatusMsg(`Stopped · ${r.duration.formatted}`);
-    setTicks(prev => { const n={...prev}; delete n[id]; return n; });
     await loadAll();
   };
 
@@ -159,7 +165,7 @@ export default function App() {
 
   const clearProjectLogs = async (id) => {
     await api.logs.clear(id);
-    setLogs(prev => { const n={...prev}; delete n[id]; return n; });
+    // Component will handle its own refresh
   };
 
   const saveGroup = async (data) => {
@@ -200,20 +206,18 @@ export default function App() {
     <>
       <Loader visible={!ready} />
       <div className={`app-shell ${ready?'app-ready':''}`}>
-        <Header
+        <MemoHeader
           selectedGroup={selG}
           selectedProject={sel}
           runningCount={runCount}
-          liveSecs={sel ? ticks[sel.id] : null}
         />
 
         <div className="app-body" style={{ '--sidebar-w': `${sidebarWidth}px` }}>
-          <Sidebar
+          <MemoSidebar
             projects={projects}
             groups={groups}
             selectedId={selectedId}
             selectedGroupId={selectedGrpId}
-            ticks={ticks}
             onSelect={id => { setSelectedId(id); setSelectedGrpId(null); }}
             onSelectGroup={id => { setSelectedGrpId(id); setSelectedId(null); }}
             onTogglePinProject={togglePinProject}
@@ -226,19 +230,16 @@ export default function App() {
 
           <main className="main-panel">
             {selG ? (
-              <GroupPanel
+              <MemoGroupPanel
                 group={selG}
                 projects={projects}
-                ticks={ticks}
                 onEdit={() => { setEditGroup(selG); setShowGrpModal(true); }}
                 onDelete={() => delGroup(selG.id)}
                 onProjectSelect={id => { setSelectedId(id); setSelectedGrpId(null); }}
               />
             ) : sel ? (
-              <ProjectDetail
+              <MemoProjectDetail
                 project={sel}
-                logs={logs[sel.id]||[]}
-                liveSecs={ticks[sel.id]??null}
                 onStartWork={() => startWork(sel.id)}
                 onStopWork={() => stopWork(sel.id)}
                 onEdit={() => { setEditProject(sel); setShowProjModal(true); }}
@@ -265,7 +266,7 @@ export default function App() {
           </main>
         </div>
 
-        <StatusBar message={statusMsg} runningCount={runCount} projects={projects} />
+        <MemoStatusBar message={statusMsg} runningCount={runCount} projects={projects} />
 
         {showProjModal && (
           <AddProjectModal project={editProject} onSave={saveProject} onClose={()=>{setShowProjModal(false);setEditProject(null);}} />
@@ -281,3 +282,4 @@ export default function App() {
     </>
   );
 }
+

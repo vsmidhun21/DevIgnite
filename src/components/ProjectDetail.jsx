@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import StartWork from './StartWork';
 import LogViewer from './LogViewer';
 import ProductivityPanel from './ProductivityPanel';
@@ -8,10 +8,10 @@ import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Pl
 
 const api = window.devignite;
 
-export default function ProjectDetail({
-  project, logs, liveSecs,
-  onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload, onClearLogs
+export default memo(function ProjectDetail({
+  project, onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload, onClearLogs
 }) {
+
   const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
   const [actions, setActions] = useState([]);
   const [newActionName, setNewActionName] = useState('');
@@ -100,7 +100,7 @@ export default function ProjectDetail({
       </div>
 
       <div className="action-bar">
-        <StartWork project={project} liveSecs={liveSecs} onStartWork={onStartWork} onStopWork={onStopWork} />
+        <StartWork project={project} onStartWork={onStartWork} onStopWork={onStopWork} />
         <div className="action-sep" />
         <button className="action-btn" onClick={() => api.work.run(project.id)} disabled={isRunning} title="Run only">
           <Play size={11} strokeWidth={2} /> Run
@@ -295,12 +295,13 @@ export default function ProjectDetail({
           <div className="log-toolbar" style={{ padding: '6px 16px', background: 'var(--bg1)', borderBottom: '1px solid var(--b0)' }}>
             <div className="section-title"><TerminalSquare size={12} /> Console Output</div>
           </div>
-          <LogViewer projectId={project.id} streamedLogs={logs} onClearLogs={onClearLogs} />
+          <LogViewer projectId={project.id} onClearLogs={onClearLogs} />
         </div>
       </div>
     </div>
   );
-}
+});
+
 
 function MetaCard({ icon, label, value, accent }) {
   return (
