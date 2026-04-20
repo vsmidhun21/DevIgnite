@@ -40,6 +40,15 @@ export default function ProductivityPanel({ projectId }) {
     api.time.productivity(projectId || null).then(setStats);
   }, [projectId]);
 
+  const weekData = useMemo(() => {
+    if (!stats?.daily) return [];
+    return [...stats.daily].slice(0, 7).reverse().map(d => ({
+      name: new Date(d.day + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }),
+      seconds: d.seconds,
+      fullDate: new Date(d.day + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    }));
+  }, [stats]);
+
   const monthData = useMemo(() => {
     if (!stats?.daily) return [];
     const now = new Date();
@@ -85,28 +94,44 @@ export default function ProductivityPanel({ projectId }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 14 }}>
-        <div className="section-label" style={{ fontSize: '9px', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ marginTop: 18 }}>
+        <div className="section-label" style={{ fontSize: '9px', marginBottom: 10, display: 'flex', justifyContent: 'space-between' }}>
           <span>Weekly Breakdown</span>
           <span style={{ opacity: 0.5 }}>{fmt(weekSeconds)} total</span>
         </div>
-        <div className="prod-chart" style={{ height: 50 }}>
-          {[...daily].slice(0, 7).reverse().map((d, i) => {
-            const h = Math.round((d.seconds / max) * 50);
-            const today = d.day === new Date().toISOString().slice(0, 10);
-            return (
-              <div key={i} className="prod-bar-col" title={`${d.day}: ${fmt(d.seconds)}`}>
-                <div className={`prod-bar ${today ? 'today' : ''}`} style={{ height: Math.max(h, 2), background: today ? 'var(--ignite)' : 'var(--accent)' }} />
-                <div className="prod-bar-label" style={{ fontSize: '8px' }}>
-                  {new Date(d.day + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' })}
-                </div>
-              </div>
-            );
-          })}
+        <div style={{
+          height: '80px',
+          background: 'rgba(0,0,0,0.1)',
+          borderRadius: '10px',
+          padding: '10px 10px 5px 0px',
+          border: '1px solid var(--b0)'
+        }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={weekData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: 'var(--t2)', fontSize: 9 }}
+              />
+              <YAxis hide domain={[0, 'dataMax + 600']} />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--b1)', strokeWidth: 1 }} />
+              <Area
+                type="monotone"
+                dataKey="seconds"
+                stroke="var(--ignite)"
+                strokeWidth={2}
+                fillOpacity={0.4}
+                fill="url(#colorSeconds)"
+                animationDuration={1000}
+                dot={{ r: 2, fill: 'var(--ignite)', strokeWidth: 0 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      <div style={{ marginTop: 22 }}>
+      <div style={{ marginTop: 24 }}>
         <div className="section-label" style={{ fontSize: '10px', marginBottom: 12, color: 'var(--t2)', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
           <span>Monthly Report</span>
           <span style={{ color: 'var(--ignite)', opacity: 0.8, fontSize: '9px' }}>Current Month Total: {fmt(monthData.reduce((acc, curr) => acc + curr.seconds, 0))}</span>
