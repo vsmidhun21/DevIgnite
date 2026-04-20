@@ -1,5 +1,5 @@
-import { Activity, Minus, Square, X } from 'lucide-react';
-import { useState } from 'react';
+import { Activity, Minus, Square, X, Copy } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const fmt = (s) => {
   if (!s && s !== 0) return null;
@@ -13,6 +13,15 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
   const timer = isRunning && liveSecs != null ? fmt(liveSecs) : null;
 
   const [activeMenu, setActiveMenu] = useState(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    const win = window.devignite?.window;
+    if (!win) return;
+
+    win.isMaximized().then(setIsMaximized);
+    return win.onMaximizeChange(setIsMaximized);
+  }, []);
 
   const handleMenuClick = (menu) => {
     setActiveMenu(menu);
@@ -74,7 +83,7 @@ export default function Header({ selectedGroup, selectedProject, runningCount, l
             <Minus size={14} />
           </button>
           <button className="win-btn maximize" onClick={() => window.devignite?.window?.maximize()}>
-            <Square size={12} />
+            {isMaximized ? <Copy size={12} /> : <Square size={12} />}
           </button>
           <button className="win-btn close" onClick={() => window.devignite?.window?.close()}>
             <X size={14} />

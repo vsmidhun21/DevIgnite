@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('devignite', {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close:    () => ipcRenderer.send('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+    onMaximizeChange: (cb) => on('window:maximize-change', cb),
     popupMenu: (name) => ipcRenderer.send('menu:popup', name),
     onMenuAction: (channel, cb) => {
       const h = (_, d) => cb(d);

@@ -60,7 +60,7 @@ export default function NotesTodosPanel({ type, refId }) {
   const wordCount = note.trim() ? note.trim().split(/\s+/).length : 0;
 
   return (
-    <div className="notes-todos-panel" style={{display:'flex', flexDirection:'column', gap:0}}>
+    <div className="notes-todos-panel" style={{display:'flex', flexDirection:'column', gap:0, height: '100%'}}>
       <section style={{marginBottom: 20}}>
         <div className="section-label" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <span>Notes</span>
@@ -80,9 +80,9 @@ export default function NotesTodosPanel({ type, refId }) {
         </div>
       </section>
 
-      <section>
+      <section style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
         <div className="section-label">Todos</div>
-        <div className="todos-container">
+        <div className="todos-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div className="todo-input-row" style={{display:'flex', gap:6, marginBottom:10}}>
             <input
               type="text"
@@ -95,7 +95,7 @@ export default function NotesTodosPanel({ type, refId }) {
             <button className="btn primary" onClick={addTodo}><Plus size={14} strokeWidth={2}/></button>
           </div>
           
-            <div className="todos-list">
+            <div className="todos-list" style={{ flex: 1, overflowY: 'auto' }}>
               {todos.length === 0 && <div className="checklist-empty">No todos yet.</div>}
               {todos.map(t => (
                 <div key={t.id} className={`todo-item ${t.completed ? 'completed' : ''}`}>

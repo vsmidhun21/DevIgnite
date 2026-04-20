@@ -74,6 +74,10 @@ function createWindow() {
       contextIsolation: true, nodeIntegration: false, sandbox: false,
     },
   });
+
+  mainWindow.on('maximize', () => mainWindow.webContents.send('window:maximize-change', true));
+  mainWindow.on('unmaximize', () => mainWindow.webContents.send('window:maximize-change', false));
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
     mainWindow.webContents.openDevTools();
@@ -101,6 +105,7 @@ ipcMain.on('window:maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.on('window:close', () => mainWindow?.close());
+ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() || false);
 
 import { shell } from 'electron';
 
