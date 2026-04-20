@@ -256,12 +256,16 @@ export default function NotesTodosPanel({ type, refId, onlySection }) {
     if (!stats?.daily) return [];
     const results = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const ds = d.toISOString().slice(0, 10);
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const Y = date.getFullYear();
+      const M = String(date.getMonth() + 1).padStart(2, '0');
+      const D = String(date.getDate()).padStart(2, '0');
+      const ds = `${Y}-${M}-${D}`;
       const match = stats.daily.find(x => x.day === ds);
       results.push(match ? match.seconds : 0);
     }
+
     return results;
   }, [stats]);
 
