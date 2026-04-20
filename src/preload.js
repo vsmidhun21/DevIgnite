@@ -122,6 +122,9 @@ contextBridge.exposeInMainWorld('devignite', {
     delete: (id) => ipcRenderer.invoke('delete-action', id),
     run: (id) => ipcRenderer.invoke('run-action', id),
   },
+  util: {
+    openExternal: (url) => ipcRenderer.invoke('open-url', url),
+  },
   settings: {
     get: () => ipcRenderer.invoke(CH.APP_SETTINGS_GET),
     update: (status) => ipcRenderer.invoke(CH.APP_SETTINGS_UPDATE, status),

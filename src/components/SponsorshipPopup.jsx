@@ -38,7 +38,7 @@ export default function SponsorshipPopup() {
   const handleAction = async (status, url = null) => {
     setVisible(false);
     await api.settings.update(status);
-    if (url) window.open(url, '_blank');
+    if (url) api.util.openExternal(url);
   };
 
   if (!visible) return null;

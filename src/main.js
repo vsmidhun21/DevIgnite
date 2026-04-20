@@ -151,7 +151,7 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'Close', click: () => mainWindow?.close() }
     ],
     Help: [
-      { label: 'Support the project', click: () => shell.openExternal('https://buymeacoffee.com/midhun.v.s') },
+      { label: 'Support DevIgnite', click: () => shell.openExternal('https://buymeacoffee.com/midhun.v.s') },
       { label: 'Star on GitHub', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite') },
       { type: 'separator' },
       { label: 'About', click: () => shell.openExternal('https://devignite.web.app/#how-it-works') },
@@ -356,8 +356,9 @@ ipcMain.handle('run-action', async (_, id) => {
   const result = await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
   return result;
 });
-ipcMain.handle('open-folder', async (_, p) => {
-  return shell.openPath(p);
+ipcMain.handle('open-url', async (_, url) => {
+  if (url) shell.openExternal(url);
+  return { ok: true };
 });
 
 // ── Env / Config / IDE ────────────────────────────────────────────────────────
