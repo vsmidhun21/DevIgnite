@@ -400,12 +400,69 @@ body {
   flex-shrink: 0
 }
 
+.sidebar-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer
+}
+
+.sidebar-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px
+}
+
+.sidebar-section-chevron {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t2);
+  transition: transform .14s ease, color .14s ease;
+  flex-shrink: 0
+}
+
+.sidebar-section-header:hover .sidebar-section-chevron {
+  color: var(--t1)
+}
+
+.sidebar-section-chevron.expanded {
+  transform: rotate(90deg)
+}
+
 .sidebar-section-label {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: .1em;
   color: var(--t2);
   font-weight: 600
+}
+
+.sidebar-section-content {
+  overflow: hidden;
+  transition: opacity .14s ease, max-height .18s ease
+}
+
+.sidebar-section-content.expanded {
+  opacity: 1;
+  max-height: 999px
+}
+
+.sidebar-section-content.expanded.fill {
+  flex: 1;
+  min-height: 0;
+  max-height: none
+}
+
+.sidebar-section-content.collapsed {
+  opacity: 0;
+  max-height: 0;
+  pointer-events: none
 }
 
 .btn-add-inline {
@@ -2713,4 +2770,4 @@ body {
 .sponsorship-actions .btn-dismiss {
   padding: 5px;
 }
-
+

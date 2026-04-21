@@ -227,6 +227,7 @@ ipcMain.handle(IPC_CHANNELS.VALIDATE_PROJECT, (_, projectId) => {
 async function _doStart(projectId) {
   const project = projectManager.getById(projectId);
   if (!project) return { ok: false, error: 'Project not found' };
+  if (project.archived) return { ok: false, error: 'Archived projects must be restored before running' };
   if (processManager.isRunning(projectId)) return { ok: false, error: 'Already running' };
 
   // Port conflict check
@@ -265,6 +266,7 @@ ipcMain.handle(IPC_CHANNELS.STOP_WORK, (_, projectId) => {
 ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
   const p = projectManager.getById(projectId);
   if (!p) return { ok: false, error: 'Not found' };
+  if (p.archived) return { ok: false, error: 'Archived projects must be restored before running' };
   if (processManager.isRunning(projectId)) return { ok: false, error: 'Already running' };
   const sessionId = crypto.randomUUID();
   activeSessions.set(projectId, sessionId);
@@ -292,6 +294,11 @@ ipcMain.handle(IPC_CHANNELS.GROUP_START, async (_, groupId) => {
   if (!group) return { ok: false, error: 'Group not found' };
   const results = [];
   for (const projectId of group.projectIds) {
+    const project = projectManager.getById(projectId);
+    if (!project || project.archived) {
+      results.push({ projectId, ok: false, error: project ? 'Archived' : 'Project not found' });
+      continue;
+    }
     const r = await _doStart(projectId);
     results.push({ projectId, ...r });
     if (r.ok) await new Promise(res => setTimeout(res, 400)); // stagger starts
