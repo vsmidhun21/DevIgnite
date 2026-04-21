@@ -676,6 +676,13 @@ body {
   margin-top: 1px
 }
 
+.proj-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px
+}
+
 .proj-name {
   font-size: 12px;
   color: var(--t0);

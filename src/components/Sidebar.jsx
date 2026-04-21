@@ -50,15 +50,15 @@ const ProjectItem = memo(({ p, isSelected, onSelect, onTogglePin, status }) => {
       <div className="proj-info">
         <div className="proj-name-row">
           <span className="proj-name">{p.name}</span>
-          {p.tag && (
-            <span className="tag-badge" style={{backgroundColor:getTagColor(p.tag)}}>{p.tag}</span>
-          )}
           {git?.hasGit && git.branch && (
             <span className="proj-branch">{git.branch}{git.isDirty ? '*' : ''}</span>
           )}
         </div>
         <div className="proj-meta-row">
           <span className="type-badge-sm">{p.type?.split(' ')[0]}</span>
+          {p.tag && (
+            <span className="tag-badge" style={{ backgroundColor: getTagColor(p.tag) }}>{p.tag}</span>
+          )}
           {live != null && status === 'running'
             ? <span className="proj-timer">{fmt(live)}</span>
             : p.todaySecs > 0
