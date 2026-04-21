@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, memo } from 'react';
 import { Search, X, Plus, Star, ArchiveRestore, ChevronRight } from 'lucide-react';
+import { getTagColor } from '../../shared/utils/tagUtils.js';
 
 const api = window.devignite;
 const SIDEBAR_SECTIONS_KEY = 'sidebarSections';
@@ -55,6 +56,9 @@ const ProjectItem = memo(({ p, isSelected, onSelect, onTogglePin, status }) => {
         </div>
         <div className="proj-meta-row">
           <span className="type-badge-sm">{p.type?.split(' ')[0]}</span>
+          {p.tag && (
+            <span className="tag-badge" style={{ backgroundColor: getTagColor(p.tag) }}>{p.tag}</span>
+          )}
           {live != null && status === 'running'
             ? <span className="proj-timer">{fmt(live)}</span>
             : p.todaySecs > 0
@@ -136,13 +140,15 @@ export default memo(function Sidebar({
   const filtered = useMemo(() => projects.filter(p =>
     !debouncedSearch ||
     p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    p.type?.toLowerCase().includes(debouncedSearch.toLowerCase())
+    p.type?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.tag?.toLowerCase().includes(debouncedSearch.toLowerCase())
   ), [projects, debouncedSearch]);
 
   const filteredArchived = useMemo(() => archivedProjects.filter(p =>
     !debouncedSearch ||
     p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    p.type?.toLowerCase().includes(debouncedSearch.toLowerCase())
+    p.type?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    p.tag?.toLowerCase().includes(debouncedSearch.toLowerCase())
   ), [archivedProjects, debouncedSearch]);
 
   const workspaceItems = useMemo(() => groups.map(g => {

@@ -370,6 +370,9 @@ ipcMain.handle('delete-action', (_, id) => actionManager.deleteAction(id));
 // ── App Settings ──────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_GET, () => settingsManager.getSettings());
 ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_UPDATE, (_, status) => settingsManager.updateSponsorshipStatus(status));
+ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
+ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
+ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
 
 ipcMain.handle('run-action', async (_, id) => {
   const action = actionManager.db.prepare('SELECT * FROM actions WHERE id = ?').get(id);

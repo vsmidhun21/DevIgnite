@@ -35,6 +35,7 @@ function runMigrations(database) {
       open_terminal  INTEGER DEFAULT 1,
       open_browser   INTEGER DEFAULT 1,
       install_deps   INTEGER DEFAULT 0,
+      tag            TEXT,
       created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
@@ -115,6 +116,7 @@ function runMigrations(database) {
       sponsorship_status TEXT DEFAULT 'pending',
       session_count_since_later INTEGER DEFAULT 0,
       last_shown_at TEXT,
+      custom_tags TEXT DEFAULT '[]',
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -131,8 +133,10 @@ function runMigrations(database) {
   safe(`ALTER TABLE projects ADD COLUMN ide_path TEXT`);
   safe(`ALTER TABLE projects ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE projects ADD COLUMN archived INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE projects ADD COLUMN tag TEXT`);
   safe(`ALTER TABLE groups ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
+  safe(`ALTER TABLE app_settings ADD COLUMN custom_tags TEXT DEFAULT '[]'`);
 }
 
 export function closeDb() {
