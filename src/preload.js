@@ -25,6 +25,7 @@ const CH = {
   LOG_STREAM:'log:stream', STATUS_UPDATE:'status:update', TICK_UPDATE:'tick:update',
   PORT_CONFLICT:'port:conflict', SESSION_ADD_MANUAL:'session:addManual',
   APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
+  UPDATE_AVAILABLE: 'updater:available', UPDATE_PROGRESS: 'updater:progress',
 };
 contextBridge.exposeInMainWorld('devignite', {
   pickFolder:  ()        => ipcRenderer.invoke('dialog:openFolder'),
@@ -138,10 +139,17 @@ contextBridge.exposeInMainWorld('devignite', {
     remove: (tag) => ipcRenderer.invoke('tags:remove', tag),
   },
   on: {
-    status:       (cb) => on(CH.STATUS_UPDATE, cb),
-    tick:         (cb) => on(CH.TICK_UPDATE, cb),
-    logStream:    (cb) => on(CH.LOG_STREAM, cb),
-    portConflict: (cb) => on(CH.PORT_CONFLICT, cb),
+    status:        (cb) => on(CH.STATUS_UPDATE, cb),
+    tick:          (cb) => on(CH.TICK_UPDATE, cb),
+    logStream:     (cb) => on(CH.LOG_STREAM, cb),
+    portConflict:  (cb) => on(CH.PORT_CONFLICT, cb),
+    updateAvailable:(cb)=> on(CH.UPDATE_AVAILABLE, cb),
+    updateProgress: (cb)=> on(CH.UPDATE_PROGRESS, cb),
+  },
+  updater: {
+    later:   (data)   => ipcRenderer.send('updater:later', data),
+    download:(data)   => ipcRenderer.invoke('updater:download', data),
+    install: (data)   => ipcRenderer.send('updater:install', data),
   },
 });
 

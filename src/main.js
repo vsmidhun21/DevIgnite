@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import squirrelStartup from 'electron-squirrel-startup';
 if (squirrelStartup) app.quit();
+import { Updater } from './updater.js';
 
 import { ProjectManager } from '../core/project-manager/ProjectManager.js';
 import { ConfigManager } from '../core/config-manager/ConfigManager.js';
@@ -28,6 +29,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow, dbPath, logsDir;
+let updater;
 let projectManager, configManager, timeTracker, logManager, envManager, settingsManager;
 let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager;
 const processManager = new ProcessManager();
@@ -457,6 +459,11 @@ ipcMain.handle(IPC_CHANNELS.IDE_BROWSE, async () => {
 app.whenReady().then(() => {
   initializeApp();
   createWindow();
+  // Start updater after window is ready — 3s delay avoids blocking startup
+  mainWindow.webContents.once('did-finish-load', () => {
+    updater = new Updater(mainWindow);
+    setTimeout(() => updater.checkForUpdates(), 3000);
+  });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => {
