@@ -1,44 +1,81 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { ChevronsDown, Trash2 } from 'lucide-react';
 
 const api = window.devignite;
 const LEVEL_CLASS = { info:'', warn:'warn', error:'error', success:'success' };
 
-export default function LogViewer({ projectId, streamedLogs, onClearLogs }) {
+const LogLine = memo(({ line }) => (
+  <div className={`log-line ${LEVEL_CLASS[line.level]||''}`}>
+    <span className="log-ts">
+      {line.ts ? new Date(line.ts).toTimeString().slice(0,8) : ''}
+    </span>
+    <span className="log-msg">{line.message}</span>
+  </div>
+));
+
+export default memo(function LogViewer({ projectId, onClearLogs }) {
   const [which,      setWhich]      = useState('current');
   const [savedLogs,  setSavedLogs]  = useState([]);
+  const [localLogs,  setLocalLogs]  = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [meta,       setMeta]       = useState(null);
   const panelRef = useRef(null);
+  const scrollTid = useRef(null);
 
+  // Initial load and stream subscription
   useEffect(() => {
     if (!projectId) return;
-    api.logs.read(projectId, which).then(setSavedLogs);
-    api.logs.meta(projectId).then(setMeta);
+
+    // Load history if current or previous is selected
+    const loadLogs = async () => {
+      const logs = await api.logs.read(projectId, which);
+      if (which === 'current') setLocalLogs(logs);
+      else setSavedLogs(logs);
+      
+      const m = await api.logs.meta(projectId);
+      setMeta(m);
+    };
+
+    loadLogs();
+
+    if (which === 'current') {
+      const unsub = api.on.logStream(data => {
+        if (data.projectId === projectId) {
+          setLocalLogs(prev => [...prev.slice(-999), data]);
+        }
+      });
+      return () => unsub?.();
+    }
   }, [projectId, which]);
 
+  // Optimized Scroll handling
   useEffect(() => {
     if (autoScroll && panelRef.current) {
-      panelRef.current.scrollTop = panelRef.current.scrollHeight;
+      if (scrollTid.current) cancelAnimationFrame(scrollTid.current);
+      scrollTid.current = requestAnimationFrame(() => {
+        if (panelRef.current) {
+          panelRef.current.scrollTop = panelRef.current.scrollHeight;
+        }
+      });
     }
-  }, [streamedLogs, savedLogs, autoScroll]);
+    return () => { if (scrollTid.current) cancelAnimationFrame(scrollTid.current); };
+  }, [localLogs, savedLogs, autoScroll]);
 
-  const onScroll = () => {
+  const onScroll = useCallback(() => {
     const el = panelRef.current;
     if (!el) return;
-    setAutoScroll(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
-  };
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+    if (isAtBottom !== autoScroll) setAutoScroll(isAtBottom);
+  }, [autoScroll]);
 
   const clear = async () => {
-    if (onClearLogs) {
-      await onClearLogs();
-    } else {
-      await api.logs.clear(projectId);
-    }
+    if (onClearLogs) await onClearLogs();
+    else await api.logs.clear(projectId);
     setSavedLogs([]);
+    setLocalLogs([]);
   };
 
-  const lines = which === 'current' ? streamedLogs : savedLogs;
+  const lines = which === 'current' ? localLogs : savedLogs;
 
   return (
     <div className="log-viewer">
@@ -46,7 +83,7 @@ export default function LogViewer({ projectId, streamedLogs, onClearLogs }) {
         <div className="log-tabs">
           <button className={`log-tab ${which==='current'?'active':''}`} onClick={() => setWhich('current')}>
             Current
-            {streamedLogs.length > 0 && <span className="log-count">{streamedLogs.length}</span>}
+            {localLogs.length > 0 && <span className="log-count">{localLogs.length}</span>}
           </button>
           <button className={`log-tab ${which==='previous'?'active':''}`}
             onClick={() => setWhich('previous')} disabled={!meta?.previous}>
@@ -70,14 +107,7 @@ export default function LogViewer({ projectId, streamedLogs, onClearLogs }) {
             {which==='current' ? 'No output. Start Work to begin.' : 'No previous session.'}
           </div>
         ) : (
-          lines.map((line, i) => (
-            <div key={i} className={`log-line ${LEVEL_CLASS[line.level]||''}`}>
-              <span className="log-ts">
-                {line.ts ? new Date(line.ts).toTimeString().slice(0,8) : ''}
-              </span>
-              <span className="log-msg">{line.message}</span>
-            </div>
-          ))
+          lines.map((line, i) => <LogLine key={i} line={line} />)
         )}
       </div>
 
@@ -86,4 +116,5 @@ export default function LogViewer({ projectId, streamedLogs, onClearLogs }) {
       )}
     </div>
   );
-}
+});
+

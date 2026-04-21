@@ -23,6 +23,7 @@ function runMigrations(database) {
       path           TEXT    NOT NULL,
       type           TEXT    NOT NULL DEFAULT 'Custom',
       isPinned       INTEGER DEFAULT 0,
+      archived       INTEGER DEFAULT 0,
       command        TEXT    NOT NULL DEFAULT '',
       ide            TEXT    NOT NULL DEFAULT 'VS Code',
       ide_path       TEXT,
@@ -34,6 +35,7 @@ function runMigrations(database) {
       open_terminal  INTEGER DEFAULT 1,
       open_browser   INTEGER DEFAULT 1,
       install_deps   INTEGER DEFAULT 0,
+      tag            TEXT,
       created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
@@ -106,6 +108,19 @@ function runMigrations(database) {
       completed INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      launch_count INTEGER DEFAULT 0,
+      project_launch_count INTEGER DEFAULT 0,
+      sponsorship_status TEXT DEFAULT 'pending',
+      session_count_since_later INTEGER DEFAULT 0,
+      last_shown_at TEXT,
+      custom_tags TEXT DEFAULT '[]',
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    INSERT OR IGNORE INTO app_settings (id, launch_count) VALUES (1, 0);
   `);
 
   const safe = (sql) => { try { database.exec(sql); } catch {} };
@@ -117,8 +132,11 @@ function runMigrations(database) {
   safe(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
   safe(`ALTER TABLE projects ADD COLUMN ide_path TEXT`);
   safe(`ALTER TABLE projects ADD COLUMN isPinned INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE projects ADD COLUMN archived INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE projects ADD COLUMN tag TEXT`);
   safe(`ALTER TABLE groups ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
+  safe(`ALTER TABLE app_settings ADD COLUMN custom_tags TEXT DEFAULT '[]'`);
 }
 
 export function closeDb() {

@@ -52,13 +52,20 @@ export default function ProductivityPanel({ projectId }) {
   const monthData = useMemo(() => {
     if (!stats?.daily) return [];
     const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     const todayDay = now.getDate();
     const data = [];
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(now.getFullYear(), now.getMonth(), d);
-      const dateStr = date.toISOString().slice(0, 10);
+      const date = new Date(year, month, d);
+      // Construct date string manually in local time to avoid toISOString() timezone shift
+      const Y = date.getFullYear();
+      const M = String(date.getMonth() + 1).padStart(2, '0');
+      const D = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${Y}-${M}-${D}`;
+      
       const entry = stats.daily.find(x => x.day === dateStr);
       data.push({
         day: d,
@@ -69,6 +76,7 @@ export default function ProductivityPanel({ projectId }) {
     }
     return data;
   }, [stats]);
+
 
   if (!stats) return <div className="time-empty">Loading…</div>;
   const { todaySeconds, weekSeconds, allTimeSeconds, streak, daily } = stats;

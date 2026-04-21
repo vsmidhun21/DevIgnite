@@ -8,22 +8,22 @@ export class ProjectManager {
       getById: this.db.prepare('SELECT * FROM projects WHERE id = ?'),
       insert: this.db.prepare(`
         INSERT INTO projects
-          (name, path, type, command, ide, ide_path, port, url,
+          (name, path, type, archived, command, ide, ide_path, port, url,
            active_env, env_file, startup_steps,
-           open_terminal, open_browser, install_deps)
+           open_terminal, open_browser, install_deps, tag)
         VALUES
-          (@name, @path, @type, @command, @ide, @ide_path, @port, @url,
+          (@name, @path, @type, @archived, @command, @ide, @ide_path, @port, @url,
            @active_env, @env_file, @startup_steps,
-           @open_terminal, @open_browser, @install_deps)
+           @open_terminal, @open_browser, @install_deps, @tag)
       `),
       update: this.db.prepare(`
         UPDATE projects SET
-          name=@name, path=@path, type=@type, command=@command,
+          name=@name, path=@path, type=@type, archived=@archived, command=@command,
           ide=@ide, ide_path=@ide_path, port=@port, url=@url,
           active_env=@active_env, env_file=@env_file,
           startup_steps=@startup_steps,
           open_terminal=@open_terminal, open_browser=@open_browser,
-          install_deps=@install_deps,
+          install_deps=@install_deps, tag=@tag,
           updated_at=datetime('now')
         WHERE id=@id
       `),
@@ -76,6 +76,7 @@ export class ProjectManager {
       name:          data.name?.trim()    ?? '',
       path:          data.path?.trim()    ?? '',
       type:          data.type            ?? 'Custom',
+      archived:      data.archived != null ? (data.archived ? 1 : 0) : 0,
       command:       data.command?.trim() ?? '',
       ide:           data.ide             ?? 'VS Code',
       ide_path:      data.ide_path        ?? null,
@@ -90,19 +91,22 @@ export class ProjectManager {
       open_browser:  data.open_browser  != null ? (data.open_browser  ? 1 : 0) : 1,
       install_deps:  data.install_deps  != null ? (data.install_deps  ? 1 : 0) : 0,
       isPinned:      data.isPinned != null ? (data.isPinned ? 1 : 0) : 0,
+      tag:           data.tag ?? null,
     };
   }
 
   _fromRow(row) {
     return {
       name: row.name, path: row.path, type: row.type,
+      archived: row.archived === 1 || row.archived === true,
       command: row.command, ide: row.ide, ide_path: row.ide_path,
       port: row.port, url: row.url,
       env: row.active_env, env_file: row.env_file,
       startup_steps: row.startup_steps,
       open_terminal: row.open_terminal, open_browser: row.open_browser,
       install_deps: row.install_deps,
-      isPinned: row.isPinned === 1,
+      isPinned: row.isPinned === 1 || row.isPinned === true,
+      tag: row.tag || null,
     };
   }
 }

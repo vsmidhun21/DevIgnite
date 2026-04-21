@@ -1,22 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import StartWork from './StartWork';
 import LogViewer from './LogViewer';
 import ProductivityPanel from './ProductivityPanel';
 import EnvSelector from './EnvSelector';
 import NotesTodosPanel from './NotesTodosPanel';
-import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Info, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare } from 'lucide-react';
+import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
 
 const api = window.devignite;
 
-export default function ProjectDetail({
-  project, logs, liveSecs,
-  onStartWork, onStopWork, onEdit, onDelete, onSetEnv, onReload, onClearLogs
+export default memo(function ProjectDetail({
+  project, onStartWork, onStopWork, onEdit, onDelete, onArchive, onUnarchive, onSetEnv, onReload, onClearLogs
 }) {
   const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
   const [actions, setActions] = useState([]);
   const [newActionName, setNewActionName] = useState('');
   const [newActionCmd, setNewActionCmd] = useState('');
   const isRunning = project.status === 'running' || project.status === 'starting';
+  const isArchived = !!project.archived;
   const [terminalHeight, setTerminalHeight] = useState(() => {
     return parseInt(localStorage.getItem('terminalHeight')) || 280;
   });
@@ -34,7 +34,6 @@ export default function ProjectDetail({
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isResizingTerminal) return;
-      // Subtract status bar (24px) from the bottom calculation
       let newHeight = window.innerHeight - e.clientY - 24;
       if (newHeight < 120) newHeight = 120;
       if (newHeight > 600) newHeight = 600;
@@ -94,20 +93,43 @@ export default function ProjectDetail({
           <div className="detail-path">{project.path}</div>
         </div>
         <div className="header-actions">
+          {isArchived ? (
+            <button className="btn" onClick={onUnarchive}>Unarchive</button>
+          ) : (
+            <button className="btn" onClick={onArchive}>Archive</button>
+          )}
           <button className="btn" onClick={onEdit}>Edit</button>
           <button className="btn danger small" onClick={onDelete}>Delete</button>
         </div>
       </div>
 
       <div className="action-bar">
-        <StartWork project={project} liveSecs={liveSecs} onStartWork={onStartWork} onStopWork={onStopWork} />
-        <div className="action-sep" />
-        <button className="action-btn" onClick={() => api.work.run(project.id)} disabled={isRunning} title="Run only">
-          <Play size={11} strokeWidth={2} /> Run
-        </button>
-        {isRunning && (
-          <button className="action-btn danger" onClick={() => api.work.stop(project.id)} title="Stop">
-            <Square size={11} strokeWidth={2} /> Stop
+        {!isArchived ? (
+          <>
+            <StartWork project={project} onStartWork={onStartWork} onStopWork={onStopWork} />
+            <div className="action-sep" />
+            <button className="action-btn" onClick={() => api.work.run(project.id)} disabled={isRunning} title="Run only">
+              <Play size={11} strokeWidth={2} /> Run
+            </button>
+            {isRunning && (
+              <>
+                <button className="action-btn danger" onClick={() => api.work.stop(project.id)} title="Stop">
+                  <Square size={11} strokeWidth={2} /> Stop
+                </button>
+                <button className="action-btn" onClick={() => api.work.restart(project.id)} title="Restart">
+                  <RefreshCw size={11} strokeWidth={2} /> Restart
+                </button>
+              </>
+            )}
+            {project.hasDocker && (
+              <button className="action-btn" onClick={() => api.work.startDocker(project.id)} title="Start Docker">
+                <Boxes size={11} strokeWidth={2} /> Start Docker
+              </button>
+            )}
+          </>
+        ) : (
+          <button className="action-btn" onClick={onUnarchive} title="Restore project">
+            <ArchiveRestore size={11} strokeWidth={2} /> Unarchive
           </button>
         )}
         <button className="action-btn" onClick={() => api.work.openIDE(project.id)} title="Open IDE">
@@ -133,10 +155,11 @@ export default function ProjectDetail({
               <div className="section-title"><Activity size={12} /> Overview</div>
               <div className="meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
                 <MetaCard icon={<Boxes size={12} />} label="Type" value={project.type} />
+                <MetaCard icon={<Archive size={12} />} label="Archived" value={isArchived ? 'Yes' : 'No'} />
                 <MetaCard icon={<Activity size={12} />} label="Status" value={project.status || 'stopped'} accent={isRunning ? 'running' : ''} />
-                <MetaCard icon={<Hash size={12} />} label="Port" value={project.port ? `:${project.port}` : '—'} />
+                <MetaCard icon={<Hash size={12} />} label="Port" value={project.port ? `:${project.port}` : '-'} />
                 <MetaCard icon={<Code2 size={12} />} label="IDE" value={project.ide} />
-                <MetaCard icon={<Cpu size={12} />} label="PID" value={project.pid ?? '—'} />
+                <MetaCard icon={<Cpu size={12} />} label="PID" value={project.pid ?? '-'} />
                 {project.url && (
                   <div className="meta-card clickable" onClick={() => api.work.openBrowser(project.id)} title="Open in Browser" style={{ cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
@@ -295,12 +318,12 @@ export default function ProjectDetail({
           <div className="log-toolbar" style={{ padding: '6px 16px', background: 'var(--bg1)', borderBottom: '1px solid var(--b0)' }}>
             <div className="section-title"><TerminalSquare size={12} /> Console Output</div>
           </div>
-          <LogViewer projectId={project.id} streamedLogs={logs} onClearLogs={onClearLogs} />
+          <LogViewer projectId={project.id} onClearLogs={onClearLogs} />
         </div>
       </div>
     </div>
   );
-}
+});
 
 function MetaCard({ icon, label, value, accent }) {
   return (
@@ -309,7 +332,7 @@ function MetaCard({ icon, label, value, accent }) {
         {icon}
         <div className="meta-label" style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
       </div>
-      <div className={`meta-value ${accent || ''}`} style={{ fontSize: '12px', fontWeight: 600 }}>{value ?? '—'}</div>
+      <div className={`meta-value ${accent || ''}`} style={{ fontSize: '12px', fontWeight: 600 }}>{value ?? '-'}</div>
     </div>
   );
 }

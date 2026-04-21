@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Play, Square, Loader2 } from 'lucide-react';
+
+const api = window.devignite;
 
 const fmt = (s) => {
   if (!s && s!==0) return null;
@@ -7,9 +9,21 @@ const fmt = (s) => {
   return [h>0&&`${h}h`,m>0&&`${m}m`,`${sec}s`].filter(Boolean).join(' ');
 };
 
-export default function StartWork({ project, liveSecs, onStartWork, onStopWork }) {
+export default memo(function StartWork({ project, onStartWork, onStopWork }) {
   const [loading, setLoading] = useState(false);
+  const [live, setLive]     = useState(null);
   const isRunning = project.status==='running'||project.status==='starting';
+
+  useEffect(() => {
+    if (!isRunning) {
+      setLive(null);
+      return;
+    }
+    const unsub = api.on.tick(({ projectId, liveSecs }) => {
+      if (projectId === project.id) setLive(liveSecs);
+    });
+    return () => unsub?.();
+  }, [project.id, isRunning]);
 
   const click = async () => {
     setLoading(true);
@@ -32,7 +46,7 @@ export default function StartWork({ project, liveSecs, onStartWork, onStopWork }
         <div className="work-status-row">
           <span className="live-dot"/>
           <span className="live-label">{project.status==='starting'?'Starting…':'Running'}</span>
-          {liveSecs!=null && <span className="live-timer">{fmt(liveSecs)}</span>}
+          {live!=null && <span className="live-timer">{fmt(live)}</span>}
           {project.pid && <span className="live-pid">PID {project.pid}</span>}
         </div>
       )}
@@ -41,4 +55,5 @@ export default function StartWork({ project, liveSecs, onStartWork, onStopWork }
       )}
     </div>
   );
-}
+});
+

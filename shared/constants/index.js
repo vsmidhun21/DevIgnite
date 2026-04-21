@@ -8,6 +8,7 @@ export const IPC_CHANNELS = {
   DETECT_PROJECT: 'project:detect', VALIDATE_PROJECT: 'project:validate',
   // Work
   START_WORK: 'work:start', STOP_WORK: 'work:stop', RUN_ONLY: 'work:run',
+  RESTART: 'work:restart', START_DOCKER: 'work:startDocker',
   OPEN_IDE: 'work:openIDE', OPEN_TERMINAL: 'work:openTerminal', OPEN_BROWSER: 'work:openBrowser',
   // Groups
   GROUP_LIST: 'group:list', GROUP_GET: 'group:get',
@@ -35,6 +36,8 @@ export const IPC_CHANNELS = {
   NOTE_GET: 'note:get', NOTE_SAVE: 'note:save',
   TODO_GET: 'todo:get', TODO_ADD: 'todo:add',
   TODO_TOGGLE: 'todo:toggle', TODO_DELETE: 'todo:delete',
+  // App Settings
+  APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
   // Push channels (main → renderer)
   LOG_STREAM: 'log:stream', STATUS_UPDATE: 'status:update', TICK_UPDATE: 'tick:update',
   PORT_CONFLICT: 'port:conflict',

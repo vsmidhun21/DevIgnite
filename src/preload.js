@@ -5,6 +5,7 @@ const CH = {
   PROJECT_UPDATE:'project:update', PROJECT_DELETE:'project:delete', PROJECT_TOGGLE_PIN:'project:togglePin',
   DETECT_PROJECT:'project:detect', VALIDATE_PROJECT:'project:validate',
   START_WORK:'work:start', STOP_WORK:'work:stop', RUN_ONLY:'work:run',
+  RESTART:'work:restart', START_DOCKER:'work:startDocker',
   OPEN_IDE:'work:openIDE', OPEN_TERMINAL:'work:openTerminal', OPEN_BROWSER:'work:openBrowser',
   GROUP_LIST:'group:list', GROUP_GET:'group:get', GROUP_ADD:'group:add',
   GROUP_UPDATE:'group:update', GROUP_DELETE:'group:delete', GROUP_TOGGLE_PIN:'group:togglePin',
@@ -23,6 +24,8 @@ const CH = {
   TODO_TOGGLE:'todo:toggle', TODO_DELETE:'todo:delete',
   LOG_STREAM:'log:stream', STATUS_UPDATE:'status:update', TICK_UPDATE:'tick:update',
   PORT_CONFLICT:'port:conflict', SESSION_ADD_MANUAL:'session:addManual',
+  APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
+  UPDATE_AVAILABLE: 'updater:available', UPDATE_PROGRESS: 'updater:progress',
 };
 contextBridge.exposeInMainWorld('devignite', {
   pickFolder:  ()        => ipcRenderer.invoke('dialog:openFolder'),
@@ -54,6 +57,8 @@ contextBridge.exposeInMainWorld('devignite', {
     start:       (id) => ipcRenderer.invoke(CH.START_WORK, id),
     stop:        (id) => ipcRenderer.invoke(CH.STOP_WORK, id),
     run:         (id) => ipcRenderer.invoke(CH.RUN_ONLY, id),
+    restart:     (id) => ipcRenderer.invoke(CH.RESTART, id),
+    startDocker: (id) => ipcRenderer.invoke(CH.START_DOCKER, id),
     openIDE:     (id) => ipcRenderer.invoke(CH.OPEN_IDE, id),
     openTerminal:(id) => ipcRenderer.invoke(CH.OPEN_TERMINAL, id),
     openBrowser: (id) => ipcRenderer.invoke(CH.OPEN_BROWSER, id),
@@ -121,11 +126,30 @@ contextBridge.exposeInMainWorld('devignite', {
     delete: (id) => ipcRenderer.invoke('delete-action', id),
     run: (id) => ipcRenderer.invoke('run-action', id),
   },
+  util: {
+    openExternal: (url) => ipcRenderer.invoke('open-url', url),
+  },
+  settings: {
+    get: () => ipcRenderer.invoke(CH.APP_SETTINGS_GET),
+    update: (status) => ipcRenderer.invoke(CH.APP_SETTINGS_UPDATE, status),
+  },
+  tags: {
+    getCustom: () => ipcRenderer.invoke('tags:getCustom'),
+    add: (tag) => ipcRenderer.invoke('tags:add', tag),
+    remove: (tag) => ipcRenderer.invoke('tags:remove', tag),
+  },
   on: {
-    status:       (cb) => on(CH.STATUS_UPDATE, cb),
-    tick:         (cb) => on(CH.TICK_UPDATE, cb),
-    logStream:    (cb) => on(CH.LOG_STREAM, cb),
-    portConflict: (cb) => on(CH.PORT_CONFLICT, cb),
+    status:        (cb) => on(CH.STATUS_UPDATE, cb),
+    tick:          (cb) => on(CH.TICK_UPDATE, cb),
+    logStream:     (cb) => on(CH.LOG_STREAM, cb),
+    portConflict:  (cb) => on(CH.PORT_CONFLICT, cb),
+    updateAvailable:(cb)=> on(CH.UPDATE_AVAILABLE, cb),
+    updateProgress: (cb)=> on(CH.UPDATE_PROGRESS, cb),
+  },
+  updater: {
+    later:   (data)   => ipcRenderer.send('updater:later', data),
+    download:(data)   => ipcRenderer.invoke('updater:download', data),
+    install: (data)   => ipcRenderer.send('updater:install', data),
   },
 });
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { Timer, Flame, Server, X } from 'lucide-react';
 
 const api = window.devignite;
@@ -18,7 +18,7 @@ const fmt = (s) => {
   return [h > 0 && `${h}h`, m > 0 && `${m}m`, `${sec}s`].filter(Boolean).join(' ');
 };
 
-export default function StatusBar({ message, runningCount, projects }) {
+export default memo(function StatusBar({ message, runningCount, projects }) {
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 8));
   const [todaySecs, setTodaySecs] = useState(0);
   const [streak, setStreak] = useState(null);
@@ -30,18 +30,19 @@ export default function StatusBar({ message, runningCount, projects }) {
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const s = await api.time.productivity(null);
-        setTodaySecs(s.todaySeconds || 0);
-        setStreak(s.streak);
-      } catch { }
-    };
-    load();
-    const t = setInterval(load, 30000);
-    return () => clearInterval(t);
+  const loadProductivity = useCallback(async () => {
+    try {
+      const s = await api.time.productivity(null);
+      setTodaySecs(s.todaySeconds || 0);
+      setStreak(s.streak);
+    } catch { }
   }, []);
+
+  useEffect(() => {
+    loadProductivity();
+    const t = setInterval(loadProductivity, 30000);
+    return () => clearInterval(t);
+  }, [loadProductivity]);
 
   const loadPorts = async () => {
     try {
@@ -70,6 +71,8 @@ export default function StatusBar({ message, runningCount, projects }) {
         .slice(0, 30)
     );
   };
+
+  const formattedToday = useMemo(() => fmt(todaySecs), [todaySecs]);
 
   return (
     <>
@@ -111,7 +114,7 @@ export default function StatusBar({ message, runningCount, projects }) {
           {todaySecs > 0 && (
             <span className="status-today" title="Today">
               <Timer size={10} strokeWidth={2} />
-              {fmt(todaySecs)}
+              {formattedToday}
             </span>
           )}
           {streak?.current > 0 && (
@@ -129,4 +132,5 @@ export default function StatusBar({ message, runningCount, projects }) {
       </div>
     </>
   );
-}
+});
+

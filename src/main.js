@@ -1,9 +1,11 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, Notification } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import squirrelStartup from 'electron-squirrel-startup';
 if (squirrelStartup) app.quit();
+import { Updater } from './updater.js';
 
 import { ProjectManager } from '../core/project-manager/ProjectManager.js';
 import { ConfigManager } from '../core/config-manager/ConfigManager.js';
@@ -19,14 +21,16 @@ import { PortManager } from '../core/port-manager/PortManager.js';
 import { GitService } from '../core/git-service/GitService.js';
 import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
 import { ActionManager } from '../core/action-manager/index.js';
+import { SettingsManager } from '../core/settings-manager/SettingsManager.js';
 import { getDb, closeDb } from '../core/db/database.js';
-import { IPC_CHANNELS } from '../shared/constants/index.js';
+import { IPC_CHANNELS, PROJECT_STATUS } from '../shared/constants/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow, dbPath, logsDir;
-let projectManager, configManager, timeTracker, logManager, envManager;
+let updater;
+let projectManager, configManager, timeTracker, logManager, envManager, settingsManager;
 let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
@@ -50,6 +54,9 @@ function initializeApp() {
   gitService = new GitService();
   notesTodosManager = new NotesTodosManager(dbPath);
   actionManager = new ActionManager(dbPath);
+  settingsManager = new SettingsManager(dbPath);
+
+  settingsManager.incrementLaunchCount();
 
   logManager = new LogManager(logsDir, (projectId, level, message, ts) => {
     mainWindow?.webContents.send(IPC_CHANNELS.LOG_STREAM, { projectId, level, message, ts });
@@ -57,7 +64,19 @@ function initializeApp() {
 
   executionManager = new ExecutionManager(
     logManager, timeTracker, envManager, processManager, ideDetector, portManager,
-    (projectId, status, pid) => mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid }),
+    (projectId, status, pid) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid });
+      const p = projectManager?.getById(projectId);
+      if (p && Notification.isSupported()) {
+        if (status === PROJECT_STATUS.RUNNING) {
+          new Notification({ title: p.name, body: 'Project Started' }).show();
+        } else if (status === PROJECT_STATUS.STOPPED) {
+          new Notification({ title: p.name, body: 'Project Stopped' }).show();
+        } else if (status === PROJECT_STATUS.ERROR) {
+          new Notification({ title: p.name, body: 'Error in project' }).show();
+        }
+      }
+    },
     (projectId, sessionId, liveSecs) => mainWindow?.webContents.send(IPC_CHANNELS.TICK_UPDATE, { projectId, sessionId, liveSecs })
   );
 }
@@ -96,6 +115,9 @@ ipcMain.handle('dialog:openFile', async (_, { filters } = {}) => {
   const r = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: filters || [] });
   return r.canceled ? null : r.filePaths[0];
 });
+ipcMain.handle('open-folder', async (_, path) => {
+  shell.openPath(path);
+});
 
 // ── Window Controls ───────────────────────────────────────────────────────────
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
@@ -106,8 +128,6 @@ ipcMain.on('window:maximize', () => {
 });
 ipcMain.on('window:close', () => mainWindow?.close());
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() || false);
-
-import { shell } from 'electron';
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
 ipcMain.on('menu:popup', (event, menuName) => {
@@ -147,6 +167,9 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'Close', click: () => mainWindow?.close() }
     ],
     Help: [
+      { label: 'Support DevIgnite', click: () => shell.openExternal('https://buymeacoffee.com/midhun.v.s') },
+      { label: 'Star on GitHub', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite') },
+      { type: 'separator' },
       { label: 'About', click: () => shell.openExternal('https://devignite.web.app/#how-it-works') },
       { label: 'Report Issue', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite/issues') },
       { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') }
@@ -160,13 +183,32 @@ ipcMain.on('menu:popup', (event, menuName) => {
 
 
 // ── Projects ──────────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () => {
+ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, async () => {
   const projects = projectManager.listAll();
-  return projects.map(p => {
+  
+  // Use Promise.all to fetch git info in parallel without blocking main thread
+  const projectsWithInfo = await Promise.all(projects.map(async (p) => {
     const cached = gitCache.get(p.path);
-    const gitInfo = cached && (Date.now() - cached.ts) < 10000
-      ? cached.info
-      : (() => { const info = gitService.getInfo(p.path); gitCache.set(p.path, { info, ts: Date.now() }); return info; })();
+    const hasDocker = fs.existsSync(path.join(p.path, 'docker-compose.yml')) || fs.existsSync(path.join(p.path, 'docker-compose.yaml'));
+    
+    // Cache for 30s instead of 10s for better performance
+    if (cached && (Date.now() - cached.ts) < 30000) {
+      return {
+        ...p,
+        status: processManager.getStatus(p.id),
+        pid: processManager.getInfo(p.id)?.pid ?? null,
+        uptimeMs: processManager.getInfo(p.id)?.uptimeMs ?? 0,
+        sessionId: activeSessions.get(p.id) ?? null,
+        todaySecs: timeTracker.getTodayTotal(p.id),
+        git: cached.info,
+        hasDocker,
+      };
+    }
+
+    // Fetch async
+    const gitInfo = await gitService.getInfoAsync(p.path);
+    gitCache.set(p.path, { info: gitInfo, ts: Date.now() });
+
     return {
       ...p,
       status: processManager.getStatus(p.id),
@@ -175,9 +217,13 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, () => {
       sessionId: activeSessions.get(p.id) ?? null,
       todaySecs: timeTracker.getTodayTotal(p.id),
       git: gitInfo,
+      hasDocker,
     };
-  });
+  }));
+
+  return projectsWithInfo;
 });
+
 ipcMain.handle(IPC_CHANNELS.PROJECT_GET, (_, id) => projectManager.getById(id));
 ipcMain.handle(IPC_CHANNELS.PROJECT_ADD, (_, data) => projectManager.add(data));
 ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE, (_, { id, data }) => projectManager.update(id, data));
@@ -200,6 +246,7 @@ ipcMain.handle(IPC_CHANNELS.VALIDATE_PROJECT, (_, projectId) => {
 async function _doStart(projectId) {
   const project = projectManager.getById(projectId);
   if (!project) return { ok: false, error: 'Project not found' };
+  if (project.archived) return { ok: false, error: 'Archived projects must be restored before running' };
   if (processManager.isRunning(projectId)) return { ok: false, error: 'Already running' };
 
   // Port conflict check
@@ -222,6 +269,7 @@ async function _doStart(projectId) {
   activeSessions.set(projectId, sessionId);
   const result = await executionManager.startWork(project, sessionId);
   if (!result.ok) activeSessions.delete(projectId);
+  else settingsManager.incrementProjectLaunchCount();
   return result;
 }
 
@@ -234,14 +282,47 @@ ipcMain.handle(IPC_CHANNELS.STOP_WORK, (_, projectId) => {
   activeSessions.delete(projectId);
   return result;
 });
+
+ipcMain.handle(IPC_CHANNELS.RESTART, async (_, projectId) => {
+  const p = projectManager.getById(projectId);
+  if (!p) return { ok: false, error: 'Not found' };
+  const sid = activeSessions.get(projectId);
+  if (sid) {
+    executionManager.stopWork(p, sid);
+    activeSessions.delete(projectId);
+  } else if (processManager.isRunning(projectId)) {
+    processManager.stop(projectId); 
+  }
+  await new Promise(r => setTimeout(r, 600));
+  const sessionId = crypto.randomUUID();
+  activeSessions.set(projectId, sessionId);
+  const result = await executionManager.runOnly(p, sessionId);
+  if (!result.ok) activeSessions.delete(projectId);
+  return result;
+});
+
+ipcMain.handle(IPC_CHANNELS.START_DOCKER, async (_, projectId) => {
+  const p = projectManager.getById(projectId);
+  if (!p) return { ok: false };
+  const file = fs.existsSync(path.join(p.path, 'docker-compose.yaml')) ? 'docker-compose.yaml' : 'docker-compose.yml';
+  const sessionId = crypto.randomUUID(); 
+  const command = `docker-compose -f ${file} up -d`;
+  
+  if (Notification.isSupported()) new Notification({ title: p.name, body: 'Docker Started' }).show();
+  
+  const tempProject = { ...p, command: command, startup_steps: '[]', install_deps: 0, port: null };
+  return await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
+});
 ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
   const p = projectManager.getById(projectId);
   if (!p) return { ok: false, error: 'Not found' };
+  if (p.archived) return { ok: false, error: 'Archived projects must be restored before running' };
   if (processManager.isRunning(projectId)) return { ok: false, error: 'Already running' };
   const sessionId = crypto.randomUUID();
   activeSessions.set(projectId, sessionId);
   const result = await executionManager.runOnly(p, sessionId);
   if (!result.ok) activeSessions.delete(projectId);
+  else settingsManager.incrementProjectLaunchCount();
   return result;
 });
 ipcMain.handle(IPC_CHANNELS.OPEN_IDE, (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openIDE(p); return { ok: !!p }; });
@@ -263,6 +344,11 @@ ipcMain.handle(IPC_CHANNELS.GROUP_START, async (_, groupId) => {
   if (!group) return { ok: false, error: 'Group not found' };
   const results = [];
   for (const projectId of group.projectIds) {
+    const project = projectManager.getById(projectId);
+    if (!project || project.archived) {
+      results.push({ projectId, ok: false, error: project ? 'Archived' : 'Project not found' });
+      continue;
+    }
     const r = await _doStart(projectId);
     results.push({ projectId, ...r });
     if (r.ok) await new Promise(res => setTimeout(res, 400)); // stagger starts
@@ -330,6 +416,14 @@ ipcMain.handle(IPC_CHANNELS.TODO_DELETE, (_, id) => notesTodosManager.deleteTodo
 ipcMain.handle('get-actions', (_, projectId) => actionManager.getActions(projectId));
 ipcMain.handle('add-action', (_, { projectId, name, command }) => actionManager.addAction(projectId, name, command));
 ipcMain.handle('delete-action', (_, id) => actionManager.deleteAction(id));
+
+// ── App Settings ──────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_GET, () => settingsManager.getSettings());
+ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_UPDATE, (_, status) => settingsManager.updateSponsorshipStatus(status));
+ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
+ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
+ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
+
 ipcMain.handle('run-action', async (_, id) => {
   const action = actionManager.db.prepare('SELECT * FROM actions WHERE id = ?').get(id);
   if (!action) return { ok: false };
@@ -342,8 +436,9 @@ ipcMain.handle('run-action', async (_, id) => {
   const result = await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
   return result;
 });
-ipcMain.handle('open-folder', async (_, p) => {
-  return shell.openPath(p);
+ipcMain.handle('open-url', async (_, url) => {
+  if (url) shell.openExternal(url);
+  return { ok: true };
 });
 
 // ── Env / Config / IDE ────────────────────────────────────────────────────────
@@ -364,6 +459,11 @@ ipcMain.handle(IPC_CHANNELS.IDE_BROWSE, async () => {
 app.whenReady().then(() => {
   initializeApp();
   createWindow();
+  // Start updater after window is ready — 3s delay avoids blocking startup
+  mainWindow.webContents.once('did-finish-load', () => {
+    updater = new Updater(mainWindow);
+    setTimeout(() => updater.checkForUpdates(), 3000);
+  });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => {

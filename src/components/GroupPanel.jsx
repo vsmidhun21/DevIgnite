@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Play, Square, Loader2, GitBranch } from 'lucide-react';
 import NotesTodosPanel from './NotesTodosPanel';
 
@@ -9,7 +9,48 @@ const fmt = (s) => {
   return [h>0&&`${h}h`,m>0&&`${m}m`,`${sec}s`].filter(Boolean).join(' ');
 };
 
-export default function GroupPanel({ group, projects, ticks, onEdit, onDelete, onProjectSelect }) {
+const GroupMemberCard = memo(({ p, onSelect, result }) => {
+  const [live, setLive] = useState(null);
+
+  useEffect(() => {
+    if (p.status !== 'running') {
+      setLive(null);
+      return;
+    }
+    const unsub = api.on.tick(({ projectId, liveSecs }) => {
+      if (projectId === p.id) setLive(liveSecs);
+    });
+    return () => unsub?.();
+  }, [p.id, p.status]);
+
+  return (
+    <div className={`group-member-card ${p.status==='running'?'running':''}`}
+      onClick={()=>onSelect(p.id)}>
+      <div className="gmc-left">
+        <span className={`status-dot ${p.status||'stopped'}`} style={{flexShrink:0}}/>
+        <div>
+          <div className="gmc-name">{p.name}</div>
+          <div className="gmc-meta">
+            <span className="type-badge-sm">{p.type?.split(' ')[0]}</span>
+            {p.port&&<span className="gmc-port">:{p.port}</span>}
+            {p.git?.hasGit&&p.git.branch&&(
+              <span className="proj-branch">
+                <GitBranch size={8} strokeWidth={2}/> {p.git.branch}{p.git.isDirty?'*':''}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="gmc-right">
+        {live!=null&&p.status==='running'&&<span className="live-timer">{fmt(live)}</span>}
+        {result&&!result.ok&&<span className="gmc-error" title={result.error}>✗</span>}
+        {result?.ok&&<span className="gmc-ok">✓</span>}
+      </div>
+    </div>
+  );
+});
+
+export default memo(function GroupPanel({ group, projects, onEdit, onDelete, onProjectSelect }) {
   const [loading,  setLoading]  = useState(false);
   const [results,  setResults]  = useState([]);
 
@@ -68,59 +109,48 @@ export default function GroupPanel({ group, projects, ticks, onEdit, onDelete, o
         )}
       </div>
 
-      <div className="group-content" style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden'}}>
-        {/* Projects Section */}
-        <div style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minHeight:150}}>
-          <div className="section-label" style={{padding:'10px 20px 0'}}>Projects</div>
-          <div className="group-members" style={{flex:1, overflowY:'auto', padding:'10px 20px'}}>
-            {members.length===0&&(
-              <div className="steps-empty">
-                No projects. Edit to add projects.
-              </div>
-            )}
-            {members.map(p => {
-              const live   = ticks?.[p.id];
-              const result = results.find(r=>r.projectId===p.id);
-              return (
-                <div key={p.id}
-                  className={`group-member-card ${p.status==='running'?'running':''}`}
-                  onClick={()=>onProjectSelect(p.id)}>
-                  <div className="gmc-left">
-                    <span className={`status-dot ${p.status||'stopped'}`} style={{flexShrink:0}}/>
-                    <div>
-                      <div className="gmc-name">{p.name}</div>
-                      <div className="gmc-meta">
-                        <span className="type-badge-sm">{p.type?.split(' ')[0]}</span>
-                        {p.port&&<span className="gmc-port">:{p.port}</span>}
-                        {p.git?.hasGit&&p.git.branch&&(
-                          <span className="proj-branch">
-                            <GitBranch size={8} strokeWidth={2}/> {p.git.branch}{p.git.isDirty?'*':''}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="gmc-right">
-                    {live!=null&&p.status==='running'&&<span className="live-timer">{fmt(live)}</span>}
-                    {result&&!result.ok&&<span className="gmc-error" title={result.error}>✗</span>}
-                    {result?.ok&&<span className="gmc-ok">✓</span>}
-                  </div>
+      <div className="group-content" style={{ flex: 1, display: 'flex', flexDirection: 'row', gap: '20px', padding: '0 20px 20px', overflow: 'hidden' }}>
+        {/* Left Column: Projects & Work Intelligence */}
+        <div className="group-col-left" style={{ flex: '1.1', display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'hidden' }}>
+          <div style={{ flex: '0 1 auto', display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '220px', background: 'var(--bg1)', border: '1px solid var(--b0)', borderRadius: '10px' }}>
+            <div className="section-label" style={{ padding: '10px 14px 0', fontSize: '10px' }}>Projects</div>
+            <div className="group-members" style={{ overflowY: 'auto', padding: '10px 14px' }}>
+              {members.length === 0 && (
+                <div className="steps-empty">
+                  No projects. Edit to add projects.
                 </div>
-              );
-            })}
+              )}
+              {members.map(p => (
+                <GroupMemberCard
+                  key={p.id}
+                  p={p}
+                  onSelect={onProjectSelect}
+                  result={results.find(r => r.projectId === p.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+            <NotesTodosPanel type="workspace" refId={group.id} onlySection="insights" />
           </div>
         </div>
 
-        <div style={{height:1, background:'var(--b0)', margin:'0 20px'}} />
-
-        {/* Notes & Todos Section */}
-        <div style={{height:'360px', overflow:'hidden', display:'flex', flexDirection:'column'}}>
-          <div className="section-label" style={{padding:'10px 20px 0'}}>Notes & Tasks</div>
-          <div style={{flex:1, overflowY:'auto', padding:'0 20px 20px'}}>
-            <NotesTodosPanel type="workspace" refId={group.id} />
+        {/* Right Column: Notes & Todos */}
+        <div className="group-col-right" style={{ flex: '0.9', display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ background: 'var(--bg1)', border: '1px solid var(--b0)', borderRadius: '12px', padding: '16px' }}>
+              <NotesTodosPanel type="workspace" refId={group.id} onlySection="notes" />
+            </div>
+            <div style={{ background: 'var(--bg1)', border: '1px solid var(--b0)', borderRadius: '12px', padding: '16px' }}>
+              <NotesTodosPanel type="workspace" refId={group.id} onlySection="todos" />
+            </div>
           </div>
         </div>
       </div>
+
+
     </div>
   );
-}
+});
+
