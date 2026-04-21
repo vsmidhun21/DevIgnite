@@ -1,12 +1,30 @@
 import { useState, useMemo, useEffect, memo } from 'react';
-import { Search, X, Plus, Star, ArchiveRestore } from 'lucide-react';
+import { Search, X, Plus, Star, ArchiveRestore, ChevronRight } from 'lucide-react';
 
 const api = window.devignite;
+const SIDEBAR_SECTIONS_KEY = 'sidebarSections';
 
 const fmt = (s) => {
   if (!s) return null;
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
   return [h > 0 && `${h}h`, m > 0 && `${m}m`, `${sec}s`].filter(Boolean).join(' ');
+};
+
+const getInitialSections = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SIDEBAR_SECTIONS_KEY) || '{}');
+    return {
+      workspaces: saved.workspaces ?? true,
+      projects: saved.projects ?? true,
+      archived: saved.archived ?? false,
+    };
+  } catch {
+    return {
+      workspaces: true,
+      projects: true,
+      archived: false,
+    };
+  }
 };
 
 const ProjectItem = memo(({ p, isSelected, onSelect, onTogglePin, status }) => {
@@ -68,6 +86,22 @@ const ArchivedProjectItem = memo(({ p, isSelected, onSelect, onUnarchive }) => (
   </li>
 ));
 
+const SectionHeader = memo(function SectionHeader({ label, expanded, onToggle, children }) {
+  return (
+    <div className="sidebar-section-header" onClick={onToggle}>
+      <div className="sidebar-section-toggle">
+        <span className={`sidebar-section-chevron ${expanded ? 'expanded' : ''}`}>
+          <ChevronRight size={11} strokeWidth={2.4} />
+        </span>
+        <span className="sidebar-section-label">{label}</span>
+      </div>
+      <div className="sidebar-section-actions" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+});
+
 export default memo(function Sidebar({
   projects,
   archivedProjects,
@@ -84,11 +118,20 @@ export default memo(function Sidebar({
 }) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sections, setSections] = useState(getInitialSections);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 250);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_SECTIONS_KEY, JSON.stringify(sections));
+  }, [sections]);
+
+  const toggleSection = (key) => {
+    setSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const filtered = useMemo(() => projects.filter(p =>
     !debouncedSearch ||
@@ -102,7 +145,52 @@ export default memo(function Sidebar({
     p.type?.toLowerCase().includes(debouncedSearch.toLowerCase())
   ), [archivedProjects, debouncedSearch]);
 
+  const workspaceItems = useMemo(() => groups.map(g => {
+    const gps = projects.filter(p => g.projectIds.includes(p.id));
+    const anyRun = gps.some(p => p.status === 'running');
+    const allRun = gps.length > 0 && gps.every(p => p.status === 'running');
+    return (
+      <div
+        key={g.id}
+        className={`group-item ${g.id === selectedGroupId ? 'active' : ''}`}
+        onClick={() => onSelectGroup(g.id)}
+      >
+        <span className="group-dot" style={{ background: g.color }} />
+        <div className="proj-info">
+          <span className="proj-name">{g.name}</span>
+          <span className="proj-today">{gps.length} projects</span>
+        </div>
+        <button className={`pin-btn ${g.isPinned ? 'pinned' : ''}`} onClick={(e) => { e.stopPropagation(); onTogglePinGroup?.(g.id, e); }} title="Pin workspace">
+          <Star size={12} strokeWidth={2.5} fill={g.isPinned ? 'currentColor' : 'none'} />
+        </button>
+        <span className={`group-status-dot ${allRun ? 'running' : anyRun ? 'partial' : ''}`} />
+      </div>
+    );
+  }), [groups, onSelectGroup, onTogglePinGroup, projects, selectedGroupId]);
+
+  const projectItems = useMemo(() => filtered.map(p => (
+    <ProjectItem
+      key={p.id}
+      p={p}
+      isSelected={p.id === selectedId}
+      onSelect={onSelect}
+      onTogglePin={onTogglePinProject}
+      status={p.status}
+    />
+  )), [filtered, onSelect, onTogglePinProject, selectedId]);
+
+  const archivedItems = useMemo(() => filteredArchived.map(p => (
+    <ArchivedProjectItem
+      key={p.id}
+      p={p}
+      isSelected={p.id === selectedId}
+      onSelect={onSelect}
+      onUnarchive={onUnarchiveProject}
+    />
+  )), [filteredArchived, onSelect, onUnarchiveProject, selectedId]);
+
   const runningCount = useMemo(() => projects.filter(p => p.status === 'running').length, [projects]);
+  const showArchivedSection = archivedProjects.length > 0 || (debouncedSearch && filteredArchived.length > 0);
 
   return (
     <aside className="sidebar">
@@ -133,85 +221,61 @@ export default memo(function Sidebar({
 
       {groups.length > 0 && (
         <div className="sidebar-section">
-          <div className="sidebar-section-header">
-            <span className="sidebar-section-label">Workspaces</span>
+          <SectionHeader
+            label="Workspaces"
+            expanded={sections.workspaces}
+            onToggle={() => toggleSection('workspaces')}
+          >
             <button className="btn-add-inline" onClick={onAddGroup} title="New workspace">
               <Plus size={11} strokeWidth={2.5} />
             </button>
+          </SectionHeader>
+          <div className={`sidebar-section-content ${sections.workspaces ? 'expanded' : 'collapsed'}`}>
+            {sections.workspaces && workspaceItems}
           </div>
-          {groups.map(g => {
-            const gps = projects.filter(p => g.projectIds.includes(p.id));
-            const anyRun = gps.some(p => p.status === 'running');
-            const allRun = gps.length > 0 && gps.every(p => p.status === 'running');
-            return (
-              <div
-                key={g.id}
-                className={`group-item ${g.id === selectedGroupId ? 'active' : ''}`}
-                onClick={() => onSelectGroup(g.id)}
-              >
-                <span className="group-dot" style={{ background: g.color }} />
-                <div className="proj-info">
-                  <span className="proj-name">{g.name}</span>
-                  <span className="proj-today">{gps.length} projects</span>
-                </div>
-                <button className={`pin-btn ${g.isPinned ? 'pinned' : ''}`} onClick={(e) => { e.stopPropagation(); onTogglePinGroup?.(g.id, e); }} title="Pin workspace">
-                  <Star size={12} strokeWidth={2.5} fill={g.isPinned ? 'currentColor' : 'none'} />
-                </button>
-                <span className={`group-status-dot ${allRun ? 'running' : anyRun ? 'partial' : ''}`} />
-              </div>
-            );
-          })}
         </div>
       )}
 
       <div className="sidebar-section flex-1">
-        <div className="sidebar-section-header">
-          <span className="sidebar-section-label">
-            Projects {search ? `(${filtered.length})` : runningCount > 0 ? `· ${runningCount} running` : ''}
-          </span>
+        <SectionHeader
+          label={`Projects ${search ? `(${filtered.length})` : runningCount > 0 ? `- ${runningCount} running` : ''}`}
+          expanded={sections.projects}
+          onToggle={() => toggleSection('projects')}
+        >
           <button className="btn-add-inline" onClick={onAdd} title="Add project">
             <Plus size={11} strokeWidth={2.5} />
           </button>
-        </div>
+        </SectionHeader>
 
-        <ul className="project-list">
-          {filtered.map(p => (
-            <ProjectItem
-              key={p.id}
-              p={p}
-              isSelected={p.id === selectedId}
-              onSelect={onSelect}
-              onTogglePin={onTogglePinProject}
-              status={p.status}
-            />
-          ))}
-          {filtered.length === 0 && debouncedSearch && (
-            <li className="proj-empty">No matches</li>
+        <div className={`sidebar-section-content ${sections.projects ? 'expanded fill' : 'collapsed'}`}>
+          {sections.projects && (
+            <ul className="project-list">
+              {projectItems}
+              {filtered.length === 0 && debouncedSearch && (
+                <li className="proj-empty">No matches</li>
+              )}
+            </ul>
           )}
-        </ul>
+        </div>
       </div>
 
-      {(archivedProjects.length > 0 || (debouncedSearch && filteredArchived.length > 0)) && (
+      {showArchivedSection && (
         <div className="sidebar-section">
-          <div className="sidebar-section-header">
-            <span className="sidebar-section-label">
-              Archived Projects {debouncedSearch ? `(${filteredArchived.length})` : `(${archivedProjects.length})`}
-            </span>
-          </div>
-          <ul className="project-list" style={{ maxHeight: 180 }}>
-            {filteredArchived.map(p => (
-              <ArchivedProjectItem
-                key={p.id}
-                p={p}
-                isSelected={p.id === selectedId}
-                onSelect={onSelect}
-                onUnarchive={onUnarchiveProject}
-              />
-            ))}
-            {filteredArchived.length === 0 && debouncedSearch && (
-              <li className="proj-empty">No archived matches</li>
+          <SectionHeader
+            label={`Archived ${debouncedSearch ? `(${filteredArchived.length})` : `(${archivedProjects.length})`}`}
+            expanded={sections.archived}
+            onToggle={() => toggleSection('archived')}
+          />
+          <div className={`sidebar-section-content ${sections.archived ? 'expanded' : 'collapsed'}`}>
+            {sections.archived && (
+              <ul className="project-list" style={{ maxHeight: 180 }}>
+                {archivedItems}
+                {filteredArchived.length === 0 && debouncedSearch && (
+                  <li className="proj-empty">No archived matches</li>
+                )}
+              </ul>
             )}
-          </ul>
+          </div>
         </div>
       )}
 
