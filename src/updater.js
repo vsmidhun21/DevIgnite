@@ -1,9 +1,9 @@
 import { app, ipcMain, net } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import { pipeline } from 'stream/promises';
+// import { pipeline } from 'stream/promises';
 import { createWriteStream } from 'fs';
-import { Readable } from 'stream';
+// import { Readable } from 'stream';
 
 const REPO_API = 'https://api.github.com/repos/vsmidhun21/DevIgnite/releases/latest';
 const SKIP_COUNTER_KEY = 'update_skip_counter';
@@ -58,7 +58,7 @@ function loadUpdateState() {
 function saveUpdateState(state) {
   try {
     fs.writeFileSync(getSkipCounterPath(), JSON.stringify(state), 'utf8');
-  } catch {}
+  } catch { }
 }
 
 // ── Main Export ────────────────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ export class Updater {
       const destPath = path.join(tempDir, fileName);
 
       // Remove stale file if present
-      try { fs.unlinkSync(destPath); } catch {}
+      try { fs.unlinkSync(destPath); } catch { }
 
       const send = (payload) => this.mainWindow?.webContents.send('updater:progress', payload);
 
