@@ -67,11 +67,11 @@ function initializeApp() {
       const p = projectManager?.getById(projectId);
       if (p && Notification.isSupported()) {
         if (status === PROJECT_STATUS.RUNNING) {
-          new Notification({ title: 'DevIgnite', body: `Project Started: ${p.name}` }).show();
+          new Notification({ title: p.name, body: 'Project Started' }).show();
         } else if (status === PROJECT_STATUS.STOPPED) {
-          new Notification({ title: 'DevIgnite', body: `Project Stopped: ${p.name}` }).show();
+          new Notification({ title: p.name, body: 'Project Stopped' }).show();
         } else if (status === PROJECT_STATUS.ERROR) {
-          new Notification({ title: 'DevIgnite Error', body: `Error in project: ${p.name}` }).show();
+          new Notification({ title: p.name, body: 'Error in project' }).show();
         }
       }
     },
@@ -292,7 +292,11 @@ ipcMain.handle(IPC_CHANNELS.RESTART, async (_, projectId) => {
     processManager.stop(projectId); 
   }
   await new Promise(r => setTimeout(r, 600));
-  return await _doStart(projectId);
+  const sessionId = crypto.randomUUID();
+  activeSessions.set(projectId, sessionId);
+  const result = await executionManager.runOnly(p, sessionId);
+  if (!result.ok) activeSessions.delete(projectId);
+  return result;
 });
 
 ipcMain.handle(IPC_CHANNELS.START_DOCKER, async (_, projectId) => {
@@ -302,7 +306,7 @@ ipcMain.handle(IPC_CHANNELS.START_DOCKER, async (_, projectId) => {
   const sessionId = crypto.randomUUID(); 
   const command = `docker-compose -f ${file} up -d`;
   
-  if (Notification.isSupported()) new Notification({ title: 'DevIgnite', body: `Docker Started: ${p.name}` }).show();
+  if (Notification.isSupported()) new Notification({ title: p.name, body: 'Docker Started' }).show();
   
   const tempProject = { ...p, command: command, startup_steps: '[]', install_deps: 0, port: null };
   return await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
