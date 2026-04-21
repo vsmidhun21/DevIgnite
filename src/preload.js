@@ -129,6 +129,11 @@ contextBridge.exposeInMainWorld('devignite', {
     get: () => ipcRenderer.invoke(CH.APP_SETTINGS_GET),
     update: (status) => ipcRenderer.invoke(CH.APP_SETTINGS_UPDATE, status),
   },
+  tags: {
+    getCustom: () => ipcRenderer.invoke('tags:getCustom'),
+    add: (tag) => ipcRenderer.invoke('tags:add', tag),
+    remove: (tag) => ipcRenderer.invoke('tags:remove', tag),
+  },
   on: {
     status:       (cb) => on(CH.STATUS_UPDATE, cb),
     tick:         (cb) => on(CH.TICK_UPDATE, cb),

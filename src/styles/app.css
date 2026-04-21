@@ -701,6 +701,22 @@ body {
   gap: 3px
 }
 
+.tag-badge {
+  font-size: 9px;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85
+}
+
 .proj-timer {
   font-size: 10px;
   color: var(--green);

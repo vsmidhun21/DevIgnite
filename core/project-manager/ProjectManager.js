@@ -10,11 +10,11 @@ export class ProjectManager {
         INSERT INTO projects
           (name, path, type, archived, command, ide, ide_path, port, url,
            active_env, env_file, startup_steps,
-           open_terminal, open_browser, install_deps)
+           open_terminal, open_browser, install_deps, tag)
         VALUES
           (@name, @path, @type, @archived, @command, @ide, @ide_path, @port, @url,
            @active_env, @env_file, @startup_steps,
-           @open_terminal, @open_browser, @install_deps)
+           @open_terminal, @open_browser, @install_deps, @tag)
       `),
       update: this.db.prepare(`
         UPDATE projects SET
@@ -23,7 +23,7 @@ export class ProjectManager {
           active_env=@active_env, env_file=@env_file,
           startup_steps=@startup_steps,
           open_terminal=@open_terminal, open_browser=@open_browser,
-          install_deps=@install_deps,
+          install_deps=@install_deps, tag=@tag,
           updated_at=datetime('now')
         WHERE id=@id
       `),
@@ -91,6 +91,7 @@ export class ProjectManager {
       open_browser:  data.open_browser  != null ? (data.open_browser  ? 1 : 0) : 1,
       install_deps:  data.install_deps  != null ? (data.install_deps  ? 1 : 0) : 0,
       isPinned:      data.isPinned != null ? (data.isPinned ? 1 : 0) : 0,
+      tag:           data.tag ?? null,
     };
   }
 
@@ -105,6 +106,7 @@ export class ProjectManager {
       open_terminal: row.open_terminal, open_browser: row.open_browser,
       install_deps: row.install_deps,
       isPinned: row.isPinned === 1 || row.isPinned === true,
+      tag: row.tag || null,
     };
   }
 }

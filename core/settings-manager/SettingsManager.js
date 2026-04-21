@@ -45,4 +45,33 @@ export class SettingsManager {
   updateSponsorshipStatus(status) {
     return this._stmts.updateStatus.run(status);
   }
+
+  getCustomTags() {
+    const settings = this.getSettings();
+    try {
+      return (settings?.custom_tags && JSON.parse(settings.custom_tags)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  addCustomTag(tag) {
+    if (!tag?.trim()) return;
+    const tags = this.getCustomTags();
+    if (!tags.includes(tag)) {
+      tags.push(tag);
+      const stmt = this.db.prepare(`UPDATE app_settings SET custom_tags = ? WHERE id = 1`);
+      stmt.run(JSON.stringify(tags));
+    }
+  }
+
+  removeCustomTag(tag) {
+    const tags = this.getCustomTags();
+    const idx = tags.indexOf(tag);
+    if (idx > -1) {
+      tags.splice(idx, 1);
+      const stmt = this.db.prepare(`UPDATE app_settings SET custom_tags = ? WHERE id = 1`);
+      stmt.run(JSON.stringify(tags));
+    }
+  }
 }

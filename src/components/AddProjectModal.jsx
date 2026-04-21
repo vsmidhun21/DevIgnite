@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronLeft, FolderOpen, Check } from 'lucide-react';
+import { DEFAULT_TAGS, getTagColor } from '../../shared/utils/tagUtils.js';
 
 const api = window.devignite;
+const PREDEFINED_TAGS = DEFAULT_TAGS;
 
 const TYPE_OPTIONS = [
   'Django','Flask','FastAPI','React','Next.js','Angular','Vue','Nuxt',
@@ -73,7 +75,7 @@ export default function AddProjectModal({ project, onSave, onClose }) {
     name:'', path:'', type:'Custom',
     command:'', ide:'VS Code', ide_id:'vscode', ide_path:'',
     port:'', url:'', env_file:'', active_env:'dev',
-    open_terminal:true, open_browser:true, install_deps:false,
+    open_terminal:true, open_browser:true, install_deps:false, tag:'',
   });
   const [steps,        setSteps]        = useState([]);
   const [useSteps,     setUseSteps]     = useState(false);
@@ -81,9 +83,13 @@ export default function AddProjectModal({ project, onSave, onClose }) {
   const [availIDEs,    setAvailIDEs]    = useState([]);
   const [detecting,    setDetecting]    = useState(false);
   const [errs,         setErrs]         = useState({});
+  const [customTags,   setCustomTags]   = useState([]);
+  const [showNewTagInput, setShowNewTagInput] = useState(false);
+  const [newTagValue, setNewTagValue] = useState('');
 
   useEffect(() => {
     api.ide.list().then(setAvailIDEs).catch(() => {});
+    api.tags.getCustom().then(setCustomTags).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -103,6 +109,7 @@ export default function AddProjectModal({ project, onSave, onClose }) {
       open_terminal: project.open_terminal !== 0,
       open_browser:  project.open_browser  !== 0,
       install_deps:  project.install_deps  === 1,
+      tag:          project.tag          || '',
     });
     const s = (() => { try { return JSON.parse(project.startup_steps||'[]'); } catch { return []; } })();
     if (s.length > 0) { setSteps(s); setUseSteps(true); }
@@ -187,6 +194,7 @@ export default function AddProjectModal({ project, onSave, onClose }) {
       open_browser:  form.open_browser  ? 1 : 0,
       install_deps:  form.install_deps  ? 1 : 0,
       ide_path:      form.ide_path||null,
+      tag:           form.tag?.trim() || null,
     });
   };
 
@@ -351,6 +359,52 @@ export default function AddProjectModal({ project, onSave, onClose }) {
                     <div className="option-desc">Run pip/npm/composer before each start</div>
                   </div>
                 </label>
+              </div>
+              <div style={{marginTop:16}}>
+                <Field label="Tag (optional)">
+                  <select value={showNewTagInput?'__new__':form.tag} onChange={e=>{
+                    if(e.target.value==='__new__'){
+                      setShowNewTagInput(true);
+                    }else{
+                      setForm(p=>({...p,tag:e.target.value}));
+                      setShowNewTagInput(false);
+                    }
+                  }}>
+                    <option value="">No tag</option>
+                    {PREDEFINED_TAGS.map(t=><option key={t} value={t}>{t}</option>)}
+                    {customTags.map(t=><option key={t} value={t}>{t}</option>)}
+                    <option value="__new__">+ Add custom tag</option>
+                  </select>
+                  {showNewTagInput && (
+                    <div style={{marginTop:8,display:'flex',gap:6}}>
+                      <input
+                        value={newTagValue}
+                        onChange={e=>setNewTagValue(e.target.value)}
+                        placeholder="Enter tag name"
+                        style={{flex:1}}
+                        autoFocus
+                        onKeyDown={async e=>{
+                          if(e.key==='Enter'&&newTagValue.trim()){
+                            await api.tags.add(newTagValue.trim());
+                            setCustomTags(prev=>[...prev,newTagValue.trim()]);
+                            setForm(p=>({...p,tag:newTagValue.trim()}));
+                            setNewTagValue('');
+                            setShowNewTagInput(false);
+                          }
+                        }}
+                      />
+                      <button className="btn small" onClick={async ()=>{
+                        if(newTagValue.trim()){
+                          await api.tags.add(newTagValue.trim());
+                          setCustomTags(prev=>[...prev,newTagValue.trim()]);
+                          setForm(p=>({...p,tag:newTagValue.trim()}));
+                          setNewTagValue('');
+                          setShowNewTagInput(false);
+                        }
+                      }}>Add</button>
+                    </div>
+                  )}
+                </Field>
               </div>
             </>
           )}
