@@ -1,8 +1,8 @@
 const TAG_COLORS = {
-  'Client': '#3b82f6',    // Blue
-  'Personal': '#10b981',  // Green
-  'Work': '#f97316',      // Orange
-  'Learning': '#8b5cf6',  // Purple
+  'Client': '#1d4ed8',
+  'Personal': '#047857',
+  'Work': '#c2410c',
+  'Learning': '#6d28d9',
 };
 
 export function getTagColor(tag) {
@@ -14,7 +14,7 @@ export function getTagColor(tag) {
     hash = ((hash << 5) - hash) + tag.charCodeAt(i);
     hash = hash & hash;
   }
-  const colors = ['#ec4899', '#06b6d4', '#eab308', '#6366f1', '#14b8a6'];
+  const colors = ['#be185d', '#0f766e', '#a16207', '#4338ca', '#0369a1'];
   return colors[Math.abs(hash) % colors.length];
 }
 
