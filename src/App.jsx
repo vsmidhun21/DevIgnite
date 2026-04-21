@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import Sidebar           from './components/Sidebar';
 import ProjectDetail     from './components/ProjectDetail';
 import GroupPanel        from './components/GroupPanel';
@@ -165,7 +165,21 @@ export default function App() {
 
   const clearProjectLogs = async (id) => {
     await api.logs.clear(id);
-    // Component will handle its own refresh
+  };
+
+  const archiveProject = async (id) => {
+    const project = projects.find(p => p.id === id);
+    if (!project) return;
+    if (project.status === 'running' || project.status === 'starting') {
+      await api.work.stop(id);
+    }
+    await api.projects.update(id, { archived: true });
+    await loadAll();
+  };
+
+  const unarchiveProject = async (id) => {
+    await api.projects.update(id, { archived: false });
+    await loadAll();
   };
 
   const saveGroup = async (data) => {
@@ -182,14 +196,16 @@ export default function App() {
     await loadAll();
   };
 
+  const activeProjects = useMemo(() => projects.filter(p => !p.archived), [projects]);
+  const archivedProjects = useMemo(() => projects.filter(p => !!p.archived), [projects]);
   const sel  = projects.find(p=>p.id===selectedId)??null;
   const selG = groups.find(g=>g.id===selectedGrpId)??null;
-  const runCount = projects.filter(p=>p.status==='running').length;
+  const runCount = activeProjects.filter(p=>p.status==='running').length;
 
   useMenuHandlers({
     selectedId,
     selectedGrpId,
-    projects,
+    projects: activeProjects,
     setEditProject,
     setShowProjModal,
     setEditGroup,
@@ -214,7 +230,8 @@ export default function App() {
 
         <div className="app-body" style={{ '--sidebar-w': `${sidebarWidth}px` }}>
           <MemoSidebar
-            projects={projects}
+            projects={activeProjects}
+            archivedProjects={archivedProjects}
             groups={groups}
             selectedId={selectedId}
             selectedGroupId={selectedGrpId}
@@ -222,6 +239,7 @@ export default function App() {
             onSelectGroup={id => { setSelectedGrpId(id); setSelectedId(null); }}
             onTogglePinProject={togglePinProject}
             onTogglePinGroup={togglePinGroup}
+            onUnarchiveProject={unarchiveProject}
             onAdd={() => { setEditProject(null); setShowProjModal(true); }}
             onAddGroup={() => { setEditGroup(null); setShowGrpModal(true); }}
           />
@@ -232,7 +250,7 @@ export default function App() {
             {selG ? (
               <MemoGroupPanel
                 group={selG}
-                projects={projects}
+                projects={activeProjects}
                 onEdit={() => { setEditGroup(selG); setShowGrpModal(true); }}
                 onDelete={() => delGroup(selG.id)}
                 onProjectSelect={id => { setSelectedId(id); setSelectedGrpId(null); }}
@@ -244,6 +262,8 @@ export default function App() {
                 onStopWork={() => stopWork(sel.id)}
                 onEdit={() => { setEditProject(sel); setShowProjModal(true); }}
                 onDelete={() => delProject(sel.id)}
+                onArchive={() => archiveProject(sel.id)}
+                onUnarchive={() => unarchiveProject(sel.id)}
                 onSetEnv={env => setEnv(sel.id, env)}
                 onReload={loadAll}
                 onClearLogs={() => clearProjectLogs(sel.id)}
@@ -266,13 +286,13 @@ export default function App() {
           </main>
         </div>
 
-        <MemoStatusBar message={statusMsg} runningCount={runCount} projects={projects} />
+        <MemoStatusBar message={statusMsg} runningCount={runCount} projects={activeProjects} />
 
         {showProjModal && (
           <AddProjectModal project={editProject} onSave={saveProject} onClose={()=>{setShowProjModal(false);setEditProject(null);}} />
         )}
         {showGrpModal && (
-          <GroupModal group={editGroup} projects={projects} onSave={saveGroup} onClose={()=>{setShowGrpModal(false);setEditGroup(null);}} />
+          <GroupModal group={editGroup} projects={activeProjects} onSave={saveGroup} onClose={()=>{setShowGrpModal(false);setEditGroup(null);}} />
         )}
         {portConflict && (
           <PortConflictModal conflict={portConflict} onResolved={resolvePort} onCancel={()=>{setPortConflict(null);setPendingStart(null);}} />

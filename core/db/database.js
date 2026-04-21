@@ -23,6 +23,7 @@ function runMigrations(database) {
       path           TEXT    NOT NULL,
       type           TEXT    NOT NULL DEFAULT 'Custom',
       isPinned       INTEGER DEFAULT 0,
+      archived       INTEGER DEFAULT 0,
       command        TEXT    NOT NULL DEFAULT '',
       ide            TEXT    NOT NULL DEFAULT 'VS Code',
       ide_path       TEXT,
@@ -129,6 +130,7 @@ function runMigrations(database) {
   safe(`ALTER TABLE projects ADD COLUMN startup_steps TEXT DEFAULT '[]'`);
   safe(`ALTER TABLE projects ADD COLUMN ide_path TEXT`);
   safe(`ALTER TABLE projects ADD COLUMN isPinned INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE projects ADD COLUMN archived INTEGER DEFAULT 0`);
   safe(`ALTER TABLE groups ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
 }
