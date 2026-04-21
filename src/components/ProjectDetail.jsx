@@ -4,7 +4,7 @@ import LogViewer from './LogViewer';
 import ProductivityPanel from './ProductivityPanel';
 import EnvSelector from './EnvSelector';
 import NotesTodosPanel from './NotesTodosPanel';
-import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore } from 'lucide-react';
+import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
 
 const api = window.devignite;
 
@@ -112,8 +112,18 @@ export default memo(function ProjectDetail({
               <Play size={11} strokeWidth={2} /> Run
             </button>
             {isRunning && (
-              <button className="action-btn danger" onClick={() => api.work.stop(project.id)} title="Stop">
-                <Square size={11} strokeWidth={2} /> Stop
+              <>
+                <button className="action-btn danger" onClick={() => api.work.stop(project.id)} title="Stop">
+                  <Square size={11} strokeWidth={2} /> Stop
+                </button>
+                <button className="action-btn" onClick={() => api.work.restart(project.id)} title="Restart">
+                  <RefreshCw size={11} strokeWidth={2} /> Restart
+                </button>
+              </>
+            )}
+            {project.hasDocker && (
+              <button className="action-btn" onClick={() => api.work.startDocker(project.id)} title="Start Docker">
+                <Boxes size={11} strokeWidth={2} /> Start Docker
               </button>
             )}
           </>

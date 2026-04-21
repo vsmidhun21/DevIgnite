@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, Notification } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import squirrelStartup from 'electron-squirrel-startup';
@@ -21,7 +22,7 @@ import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
 import { ActionManager } from '../core/action-manager/index.js';
 import { SettingsManager } from '../core/settings-manager/SettingsManager.js';
 import { getDb, closeDb } from '../core/db/database.js';
-import { IPC_CHANNELS } from '../shared/constants/index.js';
+import { IPC_CHANNELS, PROJECT_STATUS } from '../shared/constants/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,7 +62,19 @@ function initializeApp() {
 
   executionManager = new ExecutionManager(
     logManager, timeTracker, envManager, processManager, ideDetector, portManager,
-    (projectId, status, pid) => mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid }),
+    (projectId, status, pid) => {
+      mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid });
+      const p = projectManager?.getById(projectId);
+      if (p && Notification.isSupported()) {
+        if (status === PROJECT_STATUS.RUNNING) {
+          new Notification({ title: 'DevIgnite', body: `Project Started: ${p.name}` }).show();
+        } else if (status === PROJECT_STATUS.STOPPED) {
+          new Notification({ title: 'DevIgnite', body: `Project Stopped: ${p.name}` }).show();
+        } else if (status === PROJECT_STATUS.ERROR) {
+          new Notification({ title: 'DevIgnite Error', body: `Error in project: ${p.name}` }).show();
+        }
+      }
+    },
     (projectId, sessionId, liveSecs) => mainWindow?.webContents.send(IPC_CHANNELS.TICK_UPDATE, { projectId, sessionId, liveSecs })
   );
 }
@@ -174,6 +187,8 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, async () => {
   // Use Promise.all to fetch git info in parallel without blocking main thread
   const projectsWithInfo = await Promise.all(projects.map(async (p) => {
     const cached = gitCache.get(p.path);
+    const hasDocker = fs.existsSync(path.join(p.path, 'docker-compose.yml')) || fs.existsSync(path.join(p.path, 'docker-compose.yaml'));
+    
     // Cache for 30s instead of 10s for better performance
     if (cached && (Date.now() - cached.ts) < 30000) {
       return {
@@ -184,6 +199,7 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, async () => {
         sessionId: activeSessions.get(p.id) ?? null,
         todaySecs: timeTracker.getTodayTotal(p.id),
         git: cached.info,
+        hasDocker,
       };
     }
 
@@ -199,6 +215,7 @@ ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, async () => {
       sessionId: activeSessions.get(p.id) ?? null,
       todaySecs: timeTracker.getTodayTotal(p.id),
       git: gitInfo,
+      hasDocker,
     };
   }));
 
@@ -262,6 +279,33 @@ ipcMain.handle(IPC_CHANNELS.STOP_WORK, (_, projectId) => {
   const result = executionManager.stopWork(p, sid || '');
   activeSessions.delete(projectId);
   return result;
+});
+
+ipcMain.handle(IPC_CHANNELS.RESTART, async (_, projectId) => {
+  const p = projectManager.getById(projectId);
+  if (!p) return { ok: false, error: 'Not found' };
+  const sid = activeSessions.get(projectId);
+  if (sid) {
+    executionManager.stopWork(p, sid);
+    activeSessions.delete(projectId);
+  } else if (processManager.isRunning(projectId)) {
+    processManager.stop(projectId); 
+  }
+  await new Promise(r => setTimeout(r, 600));
+  return await _doStart(projectId);
+});
+
+ipcMain.handle(IPC_CHANNELS.START_DOCKER, async (_, projectId) => {
+  const p = projectManager.getById(projectId);
+  if (!p) return { ok: false };
+  const file = fs.existsSync(path.join(p.path, 'docker-compose.yaml')) ? 'docker-compose.yaml' : 'docker-compose.yml';
+  const sessionId = crypto.randomUUID(); 
+  const command = `docker-compose -f ${file} up -d`;
+  
+  if (Notification.isSupported()) new Notification({ title: 'DevIgnite', body: `Docker Started: ${p.name}` }).show();
+  
+  const tempProject = { ...p, command: command, startup_steps: '[]', install_deps: 0, port: null };
+  return await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
 });
 ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
   const p = projectManager.getById(projectId);

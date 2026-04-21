@@ -8,6 +8,7 @@ export const IPC_CHANNELS = {
   DETECT_PROJECT: 'project:detect', VALIDATE_PROJECT: 'project:validate',
   // Work
   START_WORK: 'work:start', STOP_WORK: 'work:stop', RUN_ONLY: 'work:run',
+  RESTART: 'work:restart', START_DOCKER: 'work:startDocker',
   OPEN_IDE: 'work:openIDE', OPEN_TERMINAL: 'work:openTerminal', OPEN_BROWSER: 'work:openBrowser',
   // Groups
   GROUP_LIST: 'group:list', GROUP_GET: 'group:get',
