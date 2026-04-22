@@ -172,5 +172,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('menu:open-ide', () => callback('open-ide'));
     ipcRenderer.on('menu:clear-logs', () => callback('clear-logs'));
     ipcRenderer.on('menu:settings', () => callback('settings'));
+    ipcRenderer.on('menu:show-guide', () => callback('show-guide'));
   }
 });

@@ -14,6 +14,7 @@ import { useMenuHandlers } from './menuHandlers';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import GlobalSearchModal from './components/GlobalSearchModal';
 import SettingsModal     from './components/SettingsModal';
+import Tour              from './components/Tour';
 
 const api = window.devignite;
 
@@ -52,6 +53,7 @@ export default function App() {
     auto_update_enabled: 1,
     theme: 'system'
   });
+  const [isTourActive, setIsTourActive] = useState(false);
   const unsubRef = useRef([]);
   const sidebarSearchRef = useRef(null);
   const projectDetailRef = useRef(null);
@@ -89,7 +91,13 @@ export default function App() {
   }, [appSettings.theme]);
 
   useEffect(() => {
-    loadAll().then(() => setReady(true));
+    loadAll().then(() => {
+      setReady(true);
+      const hasSeenTour = localStorage.getItem('hasSeenTour');
+      if (!hasSeenTour) {
+        setTimeout(() => setIsTourActive(true), 1500);
+      }
+    });
 
     const u1 = api.on.status(({ projectId, status, pid }) => {
       startTransition(() => {
@@ -355,7 +363,8 @@ export default function App() {
     loadAll,
     setReady,
     clearProjectLogs,
-    setShowSettings
+    setShowSettings,
+    onShowGuide: () => setIsTourActive(true)
   });
 
   const saveSettings = async (newSettings) => {
@@ -467,6 +476,7 @@ export default function App() {
             onClose={() => setShowSettings(false)} 
           />
         )}
+        <Tour isActive={isTourActive} onComplete={() => setIsTourActive(false)} />
       </div>
     </>
   );

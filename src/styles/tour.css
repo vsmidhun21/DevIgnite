@@ -1,0 +1,156 @@
+.tour-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.tour-highlight {
+  position: absolute;
+  border: 2px solid var(--ignite);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px var(--ignite);
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tour-tooltip {
+  position: absolute;
+  width: 280px;
+  background: var(--bg1);
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: tour-fade-in 0.3s ease-out;
+}
+
+@keyframes tour-fade-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tour-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tour-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t0);
+}
+
+.tour-close {
+  background: transparent;
+  border: none;
+  color: var(--t2);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.tour-close:hover {
+  background: var(--bg2);
+  color: var(--t0);
+}
+
+.tour-tooltip p {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--t1);
+}
+
+.tour-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--b0);
+}
+
+.tour-progress {
+  font-size: 11px;
+  color: var(--t2);
+  font-weight: 600;
+}
+
+.tour-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.tour-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.tour-btn.primary {
+  background: var(--ignite);
+  color: white;
+}
+
+.tour-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+.tour-btn.secondary {
+  background: var(--bg2);
+  color: var(--t1);
+  border-color: var(--b1);
+}
+
+.tour-btn.secondary:hover {
+  background: var(--b1);
+  color: var(--t0);
+}
+
+/* Tooltip Pointers */
+.tour-tooltip::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--bg1);
+  border-left: 1px solid var(--b1);
+  border-top: 1px solid var(--b1);
+}
+
+.tour-pos-right::after {
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.tour-pos-bottom::after {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.tour-pos-top::after {
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(225deg);
+}

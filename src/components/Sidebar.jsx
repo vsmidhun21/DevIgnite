@@ -45,7 +45,7 @@ const ProjectItem = memo(({ p, isSelected, onSelect, onTogglePin, status }) => {
   const git = p.git;
 
   return (
-    <li className={`project-item ${isSelected ? 'active' : ''}`} onClick={() => onSelect(p.id)}>
+    <li className={`project-item ${isSelected ? 'active' : ''}`} onClick={() => onSelect(p.id)} data-tour="project-item">
       <span className={`status-dot ${status || 'stopped'}`} />
       <div className="proj-info">
         <div className="proj-name-row">
@@ -288,7 +288,7 @@ export default memo(function Sidebar({
           expanded={sections.projects}
           onToggle={() => toggleSection('projects')}
         >
-          <button className="btn-add-inline" onClick={onAdd} title="Add project">
+          <button className="btn-add-inline" onClick={onAdd} title="Add project" data-tour="add-project">
             <Plus size={11} strokeWidth={2.5} />
           </button>
         </SectionHeader>
