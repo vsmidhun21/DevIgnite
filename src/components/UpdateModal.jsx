@@ -53,7 +53,10 @@ export default function UpdateModal() {
   };
 
   const handleInstall = () => {
-    api.updater.install({ filePath: filePathRef.current });
+    api.updater.install({ 
+      filePath: filePathRef.current,
+      version: updateInfo?.latestVersion 
+    });
   };
 
   const handleDismiss = () => setPhase('idle');
