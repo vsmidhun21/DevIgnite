@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo, startTransition } from 'react';
 import Sidebar           from './components/Sidebar';
 import ProjectDetail     from './components/ProjectDetail';
 import GroupPanel        from './components/GroupPanel';
@@ -50,17 +50,29 @@ export default function App() {
     return pList;
   }, []);
 
+  const statusMsgTimer = useRef(null);
+
   useEffect(() => {
     loadAll().then(() => setReady(true));
 
     const u1 = api.on.status(({ projectId, status, pid }) => {
-      setProjects(prev => {
-        const proj = prev.find(p=>p.id===projectId);
-        if (!proj) return prev;
-        const name = proj.name||`#${projectId}`;
-        const msgs = { running:`${name} running${pid?` · PID ${pid}`:''}`, stopped:`${name} stopped`, error:`${name} error`, starting:`${name} starting…` };
-        if (msgs[status]) setStatusMsg(msgs[status]);
-        return prev.map(p => p.id===projectId ? {...p,status,pid} : p);
+      startTransition(() => {
+        setProjects(prev => {
+          const idx = prev.findIndex(p => p.id === projectId);
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = { ...next[idx], status, pid };
+          
+          if (statusMsgTimer.current) clearTimeout(statusMsgTimer.current);
+          statusMsgTimer.current = setTimeout(() => {
+            const proj = next[idx];
+            const name = proj.name || `#${projectId}`;
+            const msgs = { running:`${name} running${pid?` · PID ${pid}`:''}`, stopped:`${name} stopped`, error:`${name} error`, starting:`${name} starting…` };
+            if (msgs[status]) setStatusMsg(msgs[status]);
+          }, 200);
+
+          return next;
+        });
       });
     });
     const u2 = api.on.portConflict(conflict => {
@@ -147,15 +159,29 @@ export default function App() {
     await loadAll();
   };
 
+  const reloadProject = useCallback(async (id) => {
+    const p = await api.projects.get(id);
+    if (!p) return;
+    startTransition(() => {
+      setProjects(prev => {
+        const idx = prev.findIndex(x => x.id === id);
+        if (idx === -1) return prev;
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...p };
+        return next;
+      });
+    });
+  }, []);
+
   const setEnv = async (projectId, env) => {
     await api.projects.update(projectId, {active_env:env});
-    await loadAll();
+    await reloadProject(projectId);
   };
 
   const togglePinProject = async (id, e) => {
     e?.stopPropagation();
     await api.projects.togglePin(id);
-    await loadAll();
+    await reloadProject(id);
   };
 
   const togglePinGroup = async (id, e) => {
@@ -175,12 +201,12 @@ export default function App() {
       await api.work.stop(id);
     }
     await api.projects.update(id, { archived: true });
-    await loadAll();
+    await reloadProject(id);
   };
 
   const unarchiveProject = async (id) => {
     await api.projects.update(id, { archived: false });
-    await loadAll();
+    await reloadProject(id);
   };
 
   const saveGroup = async (data) => {

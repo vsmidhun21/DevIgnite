@@ -39,12 +39,29 @@ export default memo(function LogViewer({ projectId, onClearLogs }) {
     loadLogs();
 
     if (which === 'current') {
+      let rAF = null;
+      let buffer = [];
+      const flush = () => {
+        if (buffer.length === 0) return;
+        setLocalLogs(prev => {
+          const next = [...prev, ...buffer].slice(-1000);
+          buffer = [];
+          return next;
+        });
+        rAF = null;
+      };
+
       const unsub = api.on.logStream(data => {
         if (data.projectId === projectId) {
-          setLocalLogs(prev => [...prev.slice(-999), data]);
+          buffer.push(data);
+          if (!rAF) rAF = requestAnimationFrame(flush);
         }
       });
-      return () => unsub?.();
+      
+      return () => {
+        unsub?.();
+        if (rAF) cancelAnimationFrame(rAF);
+      };
     }
   }, [projectId, which]);
 

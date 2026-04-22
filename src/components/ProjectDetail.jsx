@@ -1,9 +1,10 @@
-import { useEffect, useState, memo } from 'react';
+import { useEffect, useState, memo, lazy, Suspense } from 'react';
 import StartWork from './StartWork';
 import LogViewer from './LogViewer';
-import ProductivityPanel from './ProductivityPanel';
 import EnvSelector from './EnvSelector';
-import NotesTodosPanel from './NotesTodosPanel';
+
+const ProductivityPanel = lazy(() => import('./ProductivityPanel'));
+const NotesTodosPanel = lazy(() => import('./NotesTodosPanel'));
 import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
 
 const api = window.devignite;
@@ -32,13 +33,17 @@ export default memo(function ProjectDetail({
   }, [project.path, project.id]);
 
   useEffect(() => {
+    let rAF = null;
     const handleMouseMove = (e) => {
       if (!isResizingTerminal) return;
-      let newHeight = window.innerHeight - e.clientY - 24;
-      if (newHeight < 120) newHeight = 120;
-      if (newHeight > 600) newHeight = 600;
-      setTerminalHeight(newHeight);
-      localStorage.setItem('terminalHeight', newHeight);
+      if (rAF) cancelAnimationFrame(rAF);
+      rAF = requestAnimationFrame(() => {
+        let newHeight = window.innerHeight - e.clientY - 24;
+        if (newHeight < 120) newHeight = 120;
+        if (newHeight > 600) newHeight = 600;
+        setTerminalHeight(newHeight);
+        localStorage.setItem('terminalHeight', newHeight);
+      });
     };
     const handleMouseUp = () => setIsResizingTerminal(false);
 
@@ -54,6 +59,7 @@ export default memo(function ProjectDetail({
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      if (rAF) cancelAnimationFrame(rAF);
     };
   }, [isResizingTerminal]);
 
@@ -296,20 +302,24 @@ export default memo(function ProjectDetail({
 
             <div className="dashboard-section">
               <div className="section-title"><Activity size={12} /> Performance History</div>
-              <ProductivityPanel projectId={project.id} />
+              <Suspense fallback={<div style={{ height: 150, background: 'var(--bg2)', borderRadius: 6 }} className="shimmer-loading" />}>
+                <ProductivityPanel projectId={project.id} />
+              </Suspense>
             </div>
           </div>
 
           <div className="dashboard-right">
-            <div className="dashboard-section">
-              <NotesTodosPanel type="project" refId={project.id} onlySection="notes" />
-            </div>
-            <div className="dashboard-section">
-              <NotesTodosPanel type="project" refId={project.id} onlySection="todos" />
-            </div>
-            <div className="dashboard-section">
-              <NotesTodosPanel type="project" refId={project.id} onlySection="insights" />
-            </div>
+            <Suspense fallback={<div style={{ height: 200, background: 'var(--bg2)', borderRadius: 6, marginBottom: 16 }} className="shimmer-loading" />}>
+              <div className="dashboard-section">
+                <NotesTodosPanel type="project" refId={project.id} onlySection="notes" />
+              </div>
+              <div className="dashboard-section">
+                <NotesTodosPanel type="project" refId={project.id} onlySection="todos" />
+              </div>
+              <div className="dashboard-section">
+                <NotesTodosPanel type="project" refId={project.id} onlySection="insights" />
+              </div>
+            </Suspense>
           </div>
         </div>
 
