@@ -1,16 +1,17 @@
-import { useEffect, useState, memo } from 'react';
+import { useEffect, useState, memo, lazy, Suspense, forwardRef, useImperativeHandle, useRef } from 'react';
 import StartWork from './StartWork';
 import LogViewer from './LogViewer';
-import ProductivityPanel from './ProductivityPanel';
 import EnvSelector from './EnvSelector';
-import NotesTodosPanel from './NotesTodosPanel';
+
+const ProductivityPanel = lazy(() => import('./ProductivityPanel'));
+const NotesTodosPanel = lazy(() => import('./NotesTodosPanel'));
 import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
 
 const api = window.devignite;
 
-export default memo(function ProjectDetail({
+const ProjectDetail = forwardRef(function ProjectDetail({
   project, onStartWork, onStopWork, onEdit, onDelete, onArchive, onUnarchive, onSetEnv, onReload, onClearLogs
-}) {
+}, ref) {
   const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
   const [actions, setActions] = useState([]);
   const [newActionName, setNewActionName] = useState('');
@@ -21,6 +22,8 @@ export default memo(function ProjectDetail({
     return parseInt(localStorage.getItem('terminalHeight')) || 280;
   });
   const [isResizingTerminal, setIsResizingTerminal] = useState(false);
+  const logViewerRef = useRef(null);
+  const DEFAULT_TERMINAL_HEIGHT = 280;
 
   const steps = (() => { try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; } })();
   const git = project.git || {};
@@ -32,13 +35,17 @@ export default memo(function ProjectDetail({
   }, [project.path, project.id]);
 
   useEffect(() => {
+    let rAF = null;
     const handleMouseMove = (e) => {
       if (!isResizingTerminal) return;
-      let newHeight = window.innerHeight - e.clientY - 24;
-      if (newHeight < 120) newHeight = 120;
-      if (newHeight > 600) newHeight = 600;
-      setTerminalHeight(newHeight);
-      localStorage.setItem('terminalHeight', newHeight);
+      if (rAF) cancelAnimationFrame(rAF);
+      rAF = requestAnimationFrame(() => {
+        let newHeight = window.innerHeight - e.clientY - 24;
+        if (newHeight < 120) newHeight = 120;
+        if (newHeight > 600) newHeight = 600;
+        setTerminalHeight(newHeight);
+        localStorage.setItem('terminalHeight', newHeight);
+      });
     };
     const handleMouseUp = () => setIsResizingTerminal(false);
 
@@ -54,6 +61,7 @@ export default memo(function ProjectDetail({
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      if (rAF) cancelAnimationFrame(rAF);
     };
   }, [isResizingTerminal]);
 
@@ -74,6 +82,24 @@ export default memo(function ProjectDetail({
     await api.actions.delete(id);
     setActions(actions.filter(a => a.id !== id));
   };
+
+  useImperativeHandle(ref, () => ({
+    focusLogs() {
+      setTerminalHeight(prev => Math.max(prev, DEFAULT_TERMINAL_HEIGHT));
+      requestAnimationFrame(() => {
+        logViewerRef.current?.focusPanel?.();
+      });
+    },
+    focusLogSearch() {
+      setTerminalHeight(prev => Math.max(prev, DEFAULT_TERMINAL_HEIGHT));
+      requestAnimationFrame(() => {
+        logViewerRef.current?.focusSearch?.();
+      });
+    },
+    isLogViewerActive() {
+      return !!logViewerRef.current?.containsActiveElement?.();
+    }
+  }), []);
 
   return (
     <div className="project-detail">
@@ -296,20 +322,24 @@ export default memo(function ProjectDetail({
 
             <div className="dashboard-section">
               <div className="section-title"><Activity size={12} /> Performance History</div>
-              <ProductivityPanel projectId={project.id} />
+              <Suspense fallback={<div style={{ height: 150, background: 'var(--bg2)', borderRadius: 6 }} className="shimmer-loading" />}>
+                <ProductivityPanel projectId={project.id} />
+              </Suspense>
             </div>
           </div>
 
           <div className="dashboard-right">
-            <div className="dashboard-section">
-              <NotesTodosPanel type="project" refId={project.id} onlySection="notes" />
-            </div>
-            <div className="dashboard-section">
-              <NotesTodosPanel type="project" refId={project.id} onlySection="todos" />
-            </div>
-            <div className="dashboard-section">
-              <NotesTodosPanel type="project" refId={project.id} onlySection="insights" />
-            </div>
+            <Suspense fallback={<div style={{ height: 200, background: 'var(--bg2)', borderRadius: 6, marginBottom: 16 }} className="shimmer-loading" />}>
+              <div className="dashboard-section">
+                <NotesTodosPanel type="project" refId={project.id} onlySection="notes" />
+              </div>
+              <div className="dashboard-section">
+                <NotesTodosPanel type="project" refId={project.id} onlySection="todos" />
+              </div>
+              <div className="dashboard-section">
+                <NotesTodosPanel type="project" refId={project.id} onlySection="insights" />
+              </div>
+            </Suspense>
           </div>
         </div>
 
@@ -318,12 +348,14 @@ export default memo(function ProjectDetail({
           <div className="log-toolbar" style={{ padding: '6px 16px', background: 'var(--bg1)', borderBottom: '1px solid var(--b0)' }}>
             <div className="section-title"><TerminalSquare size={12} /> Console Output</div>
           </div>
-          <LogViewer projectId={project.id} onClearLogs={onClearLogs} />
+          <LogViewer ref={logViewerRef} projectId={project.id} onClearLogs={onClearLogs} />
         </div>
       </div>
     </div>
   );
 });
+
+export default memo(ProjectDetail);
 
 function MetaCard({ icon, label, value, accent }) {
   return (

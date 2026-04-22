@@ -117,6 +117,10 @@ function runMigrations(database) {
       session_count_since_later INTEGER DEFAULT 0,
       last_shown_at TEXT,
       custom_tags TEXT DEFAULT '[]',
+      shortcuts TEXT DEFAULT '{"openSearch":"Control+k","startProject":"Control+Enter","stopProject":"Control+Shift+Enter","restartProject":"Control+r","toggleSidebar":"Control+b","focusLogs":"Control+l","focusSearch":"Control+f"}',
+      notifications_enabled INTEGER DEFAULT 1,
+      auto_update_enabled INTEGER DEFAULT 1,
+      theme TEXT DEFAULT 'system',
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -137,6 +141,10 @@ function runMigrations(database) {
   safe(`ALTER TABLE groups ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
   safe(`ALTER TABLE app_settings ADD COLUMN custom_tags TEXT DEFAULT '[]'`);
+  safe(`ALTER TABLE app_settings ADD COLUMN shortcuts TEXT DEFAULT '{"openSearch":"Control+k","startProject":"Control+Enter","stopProject":"Control+Shift+Enter","restartProject":"Control+r","toggleSidebar":"Control+b","focusLogs":"Control+l","focusSearch":"Control+f"}'`);
+  safe(`ALTER TABLE app_settings ADD COLUMN notifications_enabled INTEGER DEFAULT 1`);
+  safe(`ALTER TABLE app_settings ADD COLUMN auto_update_enabled INTEGER DEFAULT 1`);
+  safe(`ALTER TABLE app_settings ADD COLUMN theme TEXT DEFAULT 'system'`);
 }
 
 export function closeDb() {

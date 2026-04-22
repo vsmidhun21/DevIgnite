@@ -12,6 +12,7 @@ import { ConfigManager } from '../core/config-manager/ConfigManager.js';
 import { ProcessManager } from '../core/process-manager/ProcessManager.js';
 import { ExecutionManager } from '../core/execution-manager/ExecutionManager.js';
 import { LogManager } from '../core/log-manager/LogManager.js';
+import { TaskManager } from '../core/task-manager/TaskManager.js';
 import { TimeTracker } from '../core/time-tracker/TimeTracker.js';
 import { EnvManager } from '../core/env-manager/EnvManager.js';
 import { ProjectDetector } from '../core/project-detector/ProjectDetector.js';
@@ -31,7 +32,7 @@ const __dirname = path.dirname(__filename);
 let mainWindow, dbPath, logsDir;
 let updater;
 let projectManager, configManager, timeTracker, logManager, envManager, settingsManager;
-let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager;
+let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager, taskManager;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
 
@@ -55,6 +56,7 @@ function initializeApp() {
   notesTodosManager = new NotesTodosManager(dbPath);
   actionManager = new ActionManager(dbPath);
   settingsManager = new SettingsManager(dbPath);
+  taskManager = new TaskManager();
 
   settingsManager.incrementLaunchCount();
 
@@ -66,14 +68,18 @@ function initializeApp() {
     logManager, timeTracker, envManager, processManager, ideDetector, portManager,
     (projectId, status, pid) => {
       mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid });
-      const p = projectManager?.getById(projectId);
-      if (p && Notification.isSupported()) {
-        if (status === PROJECT_STATUS.RUNNING) {
-          new Notification({ title: p.name, body: 'Project Started' }).show();
-        } else if (status === PROJECT_STATUS.STOPPED) {
-          new Notification({ title: p.name, body: 'Project Stopped' }).show();
-        } else if (status === PROJECT_STATUS.ERROR) {
-          new Notification({ title: p.name, body: 'Error in project' }).show();
+      
+      const settings = settingsManager?.getSettings();
+      if (settings?.notifications_enabled !== 0) {
+        const p = projectManager?.getById(projectId);
+        if (p && Notification.isSupported()) {
+          if (status === PROJECT_STATUS.RUNNING) {
+            new Notification({ title: p.name, body: 'Project Started' }).show();
+          } else if (status === PROJECT_STATUS.STOPPED) {
+            new Notification({ title: p.name, body: 'Project Stopped' }).show();
+          } else if (status === PROJECT_STATUS.ERROR) {
+            new Notification({ title: p.name, body: 'Error in project' }).show();
+          }
         }
       }
     },
@@ -136,6 +142,8 @@ ipcMain.on('menu:popup', (event, menuName) => {
     File: [
       { label: 'New Project', click: () => send('menu:new-project') },
       { label: 'New Workspace', click: () => send('menu:new-workspace') },
+      { type: 'separator' },
+      { label: 'Settings', click: () => send('menu:settings') },
       { type: 'separator' },
       { label: 'Exit', click: () => app.quit() }
     ],
@@ -305,13 +313,19 @@ ipcMain.handle(IPC_CHANNELS.START_DOCKER, async (_, projectId) => {
   const p = projectManager.getById(projectId);
   if (!p) return { ok: false };
   const file = fs.existsSync(path.join(p.path, 'docker-compose.yaml')) ? 'docker-compose.yaml' : 'docker-compose.yml';
-  const sessionId = crypto.randomUUID(); 
-  const command = `docker-compose -f ${file} up -d`;
   
   if (Notification.isSupported()) new Notification({ title: p.name, body: 'Docker Started' }).show();
   
-  const tempProject = { ...p, command: command, startup_steps: '[]', install_deps: 0, port: null };
-  return await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
+  const command = `docker-compose -f ${file} up -d`;
+  const jobId = taskManager.run({
+    projectId,
+    type: 'docker',
+    label: 'Docker Compose',
+    command,
+    cwd: p.path,
+    onLog: (pid, lvl, msg, ts) => logManager.write(projectId, lvl, `[Docker] ${msg}`)
+  });
+  return { ok: true, sessionId: jobId };
 });
 ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
   const p = projectManager.getById(projectId);
@@ -418,8 +432,15 @@ ipcMain.handle('add-action', (_, { projectId, name, command }) => actionManager.
 ipcMain.handle('delete-action', (_, id) => actionManager.deleteAction(id));
 
 // ── App Settings ──────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_GET, () => settingsManager.getSettings());
+ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_GET, () => {
+  const s = settingsManager.getSettings();
+  if (s && s.shortcuts) {
+    try { s.shortcuts = JSON.parse(s.shortcuts); } catch (e) { s.shortcuts = {}; }
+  }
+  return s;
+});
 ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_UPDATE, (_, status) => settingsManager.updateSponsorshipStatus(status));
+ipcMain.handle('settings:save', (_, settings) => settingsManager.updateSettings(settings));
 ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
 ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
 ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
@@ -429,12 +450,16 @@ ipcMain.handle('run-action', async (_, id) => {
   if (!action) return { ok: false };
   const p = projectManager.getById(action.projectId);
   if (!p) return { ok: false };
-  const tempProject = { ...p, command: action.command, startup_steps: '[]', install_deps: 0, port: null };
-  const sessionId = crypto.randomUUID();
-  // We don't set activeSessions here because this is an auxiliary action, 
-  // not the main project work session.
-  const result = await executionManager.runOnly(tempProject, sessionId, { isPrimary: false });
-  return result;
+  
+  const jobId = taskManager.run({
+    projectId: p.id,
+    type: 'action',
+    label: action.name,
+    command: action.command,
+    cwd: p.path,
+    onLog: (pid, lvl, msg, ts) => logManager.write(p.id, lvl, `[Action ${action.name}] ${msg}`)
+  });
+  return { ok: true, sessionId: jobId };
 });
 ipcMain.handle('open-url', async (_, url) => {
   if (url) shell.openExternal(url);
@@ -455,6 +480,14 @@ ipcMain.handle(IPC_CHANNELS.IDE_BROWSE, async () => {
   return r.canceled ? null : r.filePaths[0];
 });
 
+ipcMain.handle('job:list', (_, projectId) => taskManager?.listJobsForProject(projectId) || []);
+ipcMain.handle('job:cancel', (_, jobId) => taskManager?.cancel(jobId));
+ipcMain.handle('perf:snapshot', () => ({
+  activeJobs: taskManager ? taskManager._jobs.size : 0,
+  runningProcesses: processManager ? processManager.listRunning().length : 0,
+  memUsage: process.memoryUsage()
+}));
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   initializeApp();
@@ -462,12 +495,16 @@ app.whenReady().then(() => {
   // Start updater after window is ready — 3s delay avoids blocking startup
   mainWindow.webContents.once('did-finish-load', () => {
     updater = new Updater(mainWindow);
-    setTimeout(() => updater.checkForUpdates(), 3000);
+    const settings = settingsManager?.getSettings();
+    if (settings?.auto_update_enabled !== 0) {
+      setTimeout(() => updater.checkForUpdates(), 3000);
+    }
   });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => {
   executionManager?.stopAllTicks();
+  taskManager?.stopAll();
   processManager.stopAll();
   logManager?.closeAll();
   closeDb();

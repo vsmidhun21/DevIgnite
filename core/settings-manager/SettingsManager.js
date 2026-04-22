@@ -26,6 +26,15 @@ export class SettingsManager {
             session_count_since_later = 0,
             updated_at = datetime('now')
         WHERE id = 1
+      `),
+      updateSettings: this.db.prepare(`
+        UPDATE app_settings
+        SET shortcuts = ?,
+            notifications_enabled = ?,
+            auto_update_enabled = ?,
+            theme = ?,
+            updated_at = datetime('now')
+        WHERE id = 1
       `)
     };
   }
@@ -44,6 +53,15 @@ export class SettingsManager {
 
   updateSponsorshipStatus(status) {
     return this._stmts.updateStatus.run(status);
+  }
+  
+  updateSettings(settings) {
+    return this._stmts.updateSettings.run(
+      JSON.stringify(settings.shortcuts),
+      settings.notifications_enabled ? 1 : 0,
+      settings.auto_update_enabled ? 1 : 0,
+      settings.theme
+    );
   }
 
   getCustomTags() {

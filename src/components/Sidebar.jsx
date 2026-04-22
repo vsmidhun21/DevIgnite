@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, memo } from 'react';
-import { Search, X, Plus, Star, ArchiveRestore, ChevronRight } from 'lucide-react';
+import { useState, useMemo, useEffect, memo, useCallback } from 'react';
+import { Search, X, Plus, Star, ArchiveRestore, ChevronRight, Settings } from 'lucide-react';
 import { getTagColor } from '../../shared/utils/tagUtils.js';
 
 const api = window.devignite;
@@ -90,6 +90,54 @@ const ArchivedProjectItem = memo(({ p, isSelected, onSelect, onUnarchive }) => (
   </li>
 ));
 
+const VirtualProjectList = memo(({ items, selectedId, onSelect, onTogglePin }) => {
+  const [scrollTop, setScrollTop] = useState(0);
+  const ITEM_HEIGHT = 46; 
+  const OVERSCAN = 10;
+  
+  const onScroll = useCallback((e) => {
+    setScrollTop(e.target.scrollTop);
+  }, []);
+
+  if (items.length <= 40) {
+    return (
+      <ul className="project-list">
+        {items.map(p => (
+          <ProjectItem
+            key={p.id} p={p}
+            isSelected={p.id === selectedId}
+            onSelect={onSelect}
+            onTogglePin={onTogglePin}
+            status={p.status}
+          />
+        ))}
+      </ul>
+    );
+  }
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN);
+  const endIndex = Math.min(items.length, Math.ceil((scrollTop + 800) / ITEM_HEIGHT) + OVERSCAN);
+  const visibleItems = items.slice(startIndex, endIndex);
+  
+  return (
+    <div className="virtual-scroll-viewport" onScroll={onScroll} style={{ overflowY: 'auto', height: '100%', position: 'relative' }}>
+      <ul className="project-list" style={{ height: items.length * ITEM_HEIGHT, position: 'relative', margin: 0, padding: '6px', overflow: 'hidden' }}>
+        <div style={{ transform: `translateY(${startIndex * ITEM_HEIGHT}px)`, position: 'absolute', left: 6, right: 6, top: 6 }}>
+          {visibleItems.map(p => (
+            <ProjectItem
+              key={p.id} p={p}
+              isSelected={p.id === selectedId}
+              onSelect={onSelect}
+              onTogglePin={onTogglePin}
+              status={p.status}
+            />
+          ))}
+        </div>
+      </ul>
+    </div>
+  );
+});
+
 const SectionHeader = memo(function SectionHeader({ label, expanded, onToggle, children }) {
   return (
     <div className="sidebar-section-header" onClick={onToggle}>
@@ -112,13 +160,15 @@ export default memo(function Sidebar({
   groups,
   selectedId,
   selectedGroupId,
+  searchInputRef,
   onSelect,
   onSelectGroup,
   onAdd,
   onAddGroup,
   onTogglePinProject,
   onTogglePinGroup,
-  onUnarchiveProject
+  onUnarchiveProject,
+  onOpenSettings
 }) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -174,17 +224,6 @@ export default memo(function Sidebar({
     );
   }), [groups, onSelectGroup, onTogglePinGroup, projects, selectedGroupId]);
 
-  const projectItems = useMemo(() => filtered.map(p => (
-    <ProjectItem
-      key={p.id}
-      p={p}
-      isSelected={p.id === selectedId}
-      onSelect={onSelect}
-      onTogglePin={onTogglePinProject}
-      status={p.status}
-    />
-  )), [filtered, onSelect, onTogglePinProject, selectedId]);
-
   const archivedItems = useMemo(() => filteredArchived.map(p => (
     <ArchivedProjectItem
       key={p.id}
@@ -213,6 +252,7 @@ export default memo(function Sidebar({
       <div className="sidebar-search-wrap">
         <Search size={11} strokeWidth={2} className="search-icon" />
         <input
+          ref={searchInputRef}
           className="sidebar-search"
           placeholder="Search..."
           value={search}
@@ -255,12 +295,18 @@ export default memo(function Sidebar({
 
         <div className={`sidebar-section-content ${sections.projects ? 'expanded fill' : 'collapsed'}`}>
           {sections.projects && (
-            <ul className="project-list">
-              {projectItems}
-              {filtered.length === 0 && debouncedSearch && (
-                <li className="proj-empty">No matches</li>
+            <>
+              {filtered.length > 0 ? (
+                <VirtualProjectList
+                  items={filtered}
+                  selectedId={selectedId}
+                  onSelect={onSelect}
+                  onTogglePin={onTogglePinProject}
+                />
+              ) : (
+                debouncedSearch && <ul className="project-list"><li className="proj-empty">No matches</li></ul>
               )}
-            </ul>
+            </>
           )}
         </div>
       </div>
@@ -290,6 +336,13 @@ export default memo(function Sidebar({
           <Plus size={11} strokeWidth={2} /> New workspace
         </button>
       )}
+
+      <div className="sidebar-footer">
+        <button className="sidebar-footer-btn" onClick={() => onOpenSettings?.()} title="Settings">
+          <Settings size={14} strokeWidth={2} />
+          <span>Settings</span>
+        </button>
+      </div>
     </aside>
   );
 });
