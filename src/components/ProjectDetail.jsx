@@ -1,4 +1,4 @@
-import { useEffect, useState, memo, lazy, Suspense } from 'react';
+import { useEffect, useState, memo, lazy, Suspense, forwardRef, useImperativeHandle, useRef } from 'react';
 import StartWork from './StartWork';
 import LogViewer from './LogViewer';
 import EnvSelector from './EnvSelector';
@@ -9,9 +9,9 @@ import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Pl
 
 const api = window.devignite;
 
-export default memo(function ProjectDetail({
+const ProjectDetail = forwardRef(function ProjectDetail({
   project, onStartWork, onStopWork, onEdit, onDelete, onArchive, onUnarchive, onSetEnv, onReload, onClearLogs
-}) {
+}, ref) {
   const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
   const [actions, setActions] = useState([]);
   const [newActionName, setNewActionName] = useState('');
@@ -22,6 +22,8 @@ export default memo(function ProjectDetail({
     return parseInt(localStorage.getItem('terminalHeight')) || 280;
   });
   const [isResizingTerminal, setIsResizingTerminal] = useState(false);
+  const logViewerRef = useRef(null);
+  const DEFAULT_TERMINAL_HEIGHT = 280;
 
   const steps = (() => { try { return JSON.parse(project.startup_steps || '[]'); } catch { return []; } })();
   const git = project.git || {};
@@ -80,6 +82,24 @@ export default memo(function ProjectDetail({
     await api.actions.delete(id);
     setActions(actions.filter(a => a.id !== id));
   };
+
+  useImperativeHandle(ref, () => ({
+    focusLogs() {
+      setTerminalHeight(prev => Math.max(prev, DEFAULT_TERMINAL_HEIGHT));
+      requestAnimationFrame(() => {
+        logViewerRef.current?.focusPanel?.();
+      });
+    },
+    focusLogSearch() {
+      setTerminalHeight(prev => Math.max(prev, DEFAULT_TERMINAL_HEIGHT));
+      requestAnimationFrame(() => {
+        logViewerRef.current?.focusSearch?.();
+      });
+    },
+    isLogViewerActive() {
+      return !!logViewerRef.current?.containsActiveElement?.();
+    }
+  }), []);
 
   return (
     <div className="project-detail">
@@ -328,12 +348,14 @@ export default memo(function ProjectDetail({
           <div className="log-toolbar" style={{ padding: '6px 16px', background: 'var(--bg1)', borderBottom: '1px solid var(--b0)' }}>
             <div className="section-title"><TerminalSquare size={12} /> Console Output</div>
           </div>
-          <LogViewer projectId={project.id} onClearLogs={onClearLogs} />
+          <LogViewer ref={logViewerRef} projectId={project.id} onClearLogs={onClearLogs} />
         </div>
       </div>
     </div>
   );
 });
+
+export default memo(ProjectDetail);
 
 function MetaCard({ icon, label, value, accent }) {
   return (

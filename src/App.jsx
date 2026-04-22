@@ -11,12 +11,14 @@ import Loader            from './components/Loader';
 import SponsorshipPopup  from './components/SponsorshipPopup';
 import UpdateModal       from './components/UpdateModal';
 import { useMenuHandlers } from './menuHandlers';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import GlobalSearchModal from './components/GlobalSearchModal';
 
 const api = window.devignite;
 
 // Memoize components to prevent parent re-renders from affecting them
 const MemoSidebar = memo(Sidebar);
-const MemoProjectDetail = memo(ProjectDetail);
+const MemoProjectDetail = ProjectDetail;
 const MemoGroupPanel = memo(GroupPanel);
 const MemoHeader = memo(Header);
 const MemoStatusBar = memo(StatusBar);
@@ -34,11 +36,18 @@ export default function App() {
   const [statusMsg,     setStatusMsg]     = useState('Ready');
   const [portConflict,  setPortConflict]  = useState(null);
   const [pendingStart,  setPendingStart]  = useState(null);
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('sidebarCollapsed') === 'true';
+  });
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     return parseInt(localStorage.getItem('sidebarWidth')) || 240;
   });
   const [isResizing,  setIsResizing]  = useState(false);
   const unsubRef = useRef([]);
+  const sidebarSearchRef = useRef(null);
+  const projectDetailRef = useRef(null);
+  const sidebarWidthRef = useRef(sidebarWidth);
 
   const loadAll = useCallback(async () => {
     const [pList, gList] = await Promise.all([
@@ -51,6 +60,16 @@ export default function App() {
   }, []);
 
   const statusMsgTimer = useRef(null);
+
+  useEffect(() => {
+    if (!isSidebarCollapsed) {
+      sidebarWidthRef.current = sidebarWidth;
+    }
+  }, [isSidebarCollapsed, sidebarWidth]);
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     loadAll().then(() => setReady(true));
@@ -118,6 +137,18 @@ export default function App() {
       if (frameId) cancelAnimationFrame(frameId);
     };
   }, [isResizing, sidebarWidth]);
+
+  const focusSidebarSearch = useCallback(() => {
+    if (isSidebarCollapsed) {
+      setIsSidebarCollapsed(false);
+      setSidebarWidth(sidebarWidthRef.current || 240);
+    }
+
+    requestAnimationFrame(() => {
+      sidebarSearchRef.current?.focus();
+      sidebarSearchRef.current?.select?.();
+    });
+  }, [isSidebarCollapsed]);
 
   const startWork = async (id) => {
     const r = await api.work.start(id);
@@ -229,6 +260,69 @@ export default function App() {
   const selG = groups.find(g=>g.id===selectedGrpId)??null;
   const runCount = activeProjects.filter(p=>p.status==='running').length;
 
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed(prev => {
+      if (!prev) {
+        sidebarWidthRef.current = sidebarWidth;
+      }
+      return !prev;
+    });
+
+    if (isSidebarCollapsed) {
+      setSidebarWidth(sidebarWidthRef.current || 240);
+    }
+  }, [isSidebarCollapsed, sidebarWidth]);
+
+  const toggleGlobalSearch = useCallback(() => {
+    setIsGlobalSearchOpen(prev => !prev);
+  }, []);
+
+  const startSelectedProject = useCallback(() => {
+    if (!sel || sel.archived) return;
+    if (sel.status === 'running' || sel.status === 'starting') return;
+    startWork(sel.id);
+  }, [sel]);
+
+  const stopSelectedProject = useCallback(() => {
+    if (!sel) return;
+    if (sel.status !== 'running' && sel.status !== 'starting') return;
+    stopWork(sel.id);
+  }, [sel]);
+
+  const restartProject = useCallback((id) => {
+    api.work.restart(id);
+  }, []);
+
+  const restartSelectedProject = useCallback(() => {
+    if (!sel) return;
+    const isRunning = sel.status === 'running' || sel.status === 'starting';
+    if (!isRunning) return;
+    restartProject(sel.id);
+  }, [restartProject, sel]);
+
+  const focusLogs = useCallback(() => {
+    projectDetailRef.current?.focusLogs?.();
+  }, []);
+
+  const focusSearchSurface = useCallback(() => {
+    if (projectDetailRef.current?.isLogViewerActive?.()) {
+      projectDetailRef.current?.focusLogSearch?.();
+      return;
+    }
+
+    focusSidebarSearch();
+  }, [focusSidebarSearch]);
+
+  useKeyboardShortcuts({
+    onGlobalSearch: toggleGlobalSearch,
+    onStartProject: startSelectedProject,
+    onStopProject: stopSelectedProject,
+    onRestartProject: restartSelectedProject,
+    onToggleSidebar: toggleSidebar,
+    onFocusLogs: focusLogs,
+    onFocusSearch: focusSearchSurface
+  });
+
   useMenuHandlers({
     selectedId,
     selectedGrpId,
@@ -255,13 +349,14 @@ export default function App() {
           runningCount={runCount}
         />
 
-        <div className="app-body" style={{ '--sidebar-w': `${sidebarWidth}px` }}>
+        <div className={`app-body ${isSidebarCollapsed ? 'sidebar-hidden' : ''}`} style={{ '--sidebar-w': `${isSidebarCollapsed ? 0 : sidebarWidth}px` }}>
           <MemoSidebar
             projects={activeProjects}
             archivedProjects={archivedProjects}
             groups={groups}
             selectedId={selectedId}
             selectedGroupId={selectedGrpId}
+            searchInputRef={sidebarSearchRef}
             onSelect={id => { setSelectedId(id); setSelectedGrpId(null); }}
             onSelectGroup={id => { setSelectedGrpId(id); setSelectedId(null); }}
             onTogglePinProject={togglePinProject}
@@ -271,7 +366,9 @@ export default function App() {
             onAddGroup={() => { setEditGroup(null); setShowGrpModal(true); }}
           />
 
-          <div className={`resizer-v ${isResizing ? 'active' : ''}`} onMouseDown={() => setIsResizing(true)} />
+          {!isSidebarCollapsed && (
+            <div className={`resizer-v ${isResizing ? 'active' : ''}`} onMouseDown={() => setIsResizing(true)} />
+          )}
 
           <main className="main-panel">
             {selG ? (
@@ -284,6 +381,7 @@ export default function App() {
               />
             ) : sel ? (
               <MemoProjectDetail
+                ref={projectDetailRef}
                 project={sel}
                 onStartWork={() => startWork(sel.id)}
                 onStopWork={() => stopWork(sel.id)}
@@ -326,6 +424,17 @@ export default function App() {
         )}
         <SponsorshipPopup />
         <UpdateModal />
+        <GlobalSearchModal
+          isOpen={isGlobalSearchOpen}
+          onClose={() => setIsGlobalSearchOpen(false)}
+          projects={activeProjects}
+          groups={groups}
+          onSelectProject={(id) => { setSelectedId(id); setSelectedGrpId(null); }}
+          onSelectGroup={(id) => { setSelectedGrpId(id); setSelectedId(null); }}
+          startWork={startWork}
+          stopWork={stopWork}
+          onRestartProject={restartProject}
+        />
       </div>
     </>
   );

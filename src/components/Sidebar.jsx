@@ -160,6 +160,7 @@ export default memo(function Sidebar({
   groups,
   selectedId,
   selectedGroupId,
+  searchInputRef,
   onSelect,
   onSelectGroup,
   onAdd,
@@ -250,6 +251,7 @@ export default memo(function Sidebar({
       <div className="sidebar-search-wrap">
         <Search size={11} strokeWidth={2} className="search-icon" />
         <input
+          ref={searchInputRef}
           className="sidebar-search"
           placeholder="Search..."
           value={search}
