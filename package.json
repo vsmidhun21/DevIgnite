@@ -1,7 +1,7 @@
 {
   "name": "devignite",
   "productName": "DevIgnite",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Ignite your dev projects instantly",
   "main": ".vite/build/main.js",
   "author": "Midhun V S",

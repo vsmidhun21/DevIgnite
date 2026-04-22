@@ -250,20 +250,32 @@ export class ExecutionManager {
     return [{ label: 'Start', cmd: command, wait: false }];
   }
 
-  _runWait(command, cwd, env, projectId, options = { isPrimary: true }) {
+  _timersMap = new Map();
+
+  _runWait(command, cwd, env, projectId, options = {}) {
+    const isPrimary = options.isPrimary !== false;
+    const jobId = options.jobId;
+    const prefix = !isPrimary && jobId ? `[Job ${jobId.substring(0,6)}] ` : '';
     return new Promise((resolve, reject) => {
       const child = spawn(command, [], { cwd, env, shell: true, windowsHide: true });
-      child.stdout.on('data', d => d.toString().split('\n').filter(Boolean).forEach(l => this.logManager.write(projectId, 'info', '  ' + l)));
-      child.stderr.on('data', d => d.toString().split('\n').filter(Boolean).forEach(l => this.logManager.write(projectId, 'warn', '  ' + l)));
+      child.stdout.on('data', d => d.toString().split('\n').filter(Boolean).forEach(l => this.logManager.write(projectId, 'info', prefix + '  ' + l)));
+      child.stderr.on('data', d => d.toString().split('\n').filter(Boolean).forEach(l => this.logManager.write(projectId, 'warn', prefix + '  ' + l)));
       child.on('close', code => code === 0 ? resolve() : reject(new Error(`exit ${code}`)));
       child.on('error', reject);
     });
   }
 
-  _runBackground(command, cwd, env, projectId, sessionId, project, options = { isPrimary: true }) {
+  _runBackground(command, cwd, env, projectId, sessionId, project, options = {}) {
     const isPrimary = options.isPrimary !== false;
+    const jobId = options.jobId || sessionId;
+    const prefix = !isPrimary ? `[Job ${jobId.substring(0,6)}] ` : '';
     const child = spawn(command, [], { cwd, env, shell: true, windowsHide: true });
     let isStarted = false;
+    
+    if (!this._timersMap.has(sessionId)) {
+      this._timersMap.set(sessionId, new Set());
+    }
+    const sessionTimers = this._timersMap.get(sessionId);
 
     const markStarted = () => {
       if (isStarted) return;
@@ -271,16 +283,18 @@ export class ExecutionManager {
       if (isPrimary) {
         this.onStatus(projectId, PROJECT_STATUS.RUNNING, child.pid);
       }
-      this.logManager.write(projectId, 'success', `${isPrimary ? 'Started' : 'Action started'} (PID ${child.pid})`);
+      this.logManager.write(projectId, 'success', prefix + `${isPrimary ? 'Started' : 'Action started'} (PID ${child.pid})`);
     };
 
     const timeout = setTimeout(markStarted, 4000); // Generic 4s fallback
+    sessionTimers.add(timeout);
 
     child.stdout.on('data', d => {
       d.toString().split('\n').filter(Boolean).forEach(l => {
-        this.logManager.write(projectId, 'info', l);
+        this.logManager.write(projectId, 'info', prefix + l);
         if (!isStarted && this._checkLogForStart(l)) {
           clearTimeout(timeout);
+          sessionTimers.delete(timeout);
           markStarted();
         }
       });
@@ -288,28 +302,45 @@ export class ExecutionManager {
 
     child.stderr.on('data', d => {
       d.toString().split('\n').filter(Boolean).forEach(l => {
-        this.logManager.write(projectId, 'warn', l);
+        this.logManager.write(projectId, 'warn', prefix + l);
         // Error logs can sometimes signal app start in some frameworks, but usually we prefer stdout
       });
     });
 
+    let portCheck = null;
     if (project.port) {
-      const portCheck = setInterval(async () => {
-        if (isStarted) return clearInterval(portCheck);
+      portCheck = setInterval(async () => {
+        if (isStarted) {
+          clearInterval(portCheck);
+          sessionTimers.delete(portCheck);
+          return;
+        }
         try {
           if (await this.portManager.isPortInUse(project.port)) {
             clearTimeout(timeout);
+            sessionTimers.delete(timeout);
             markStarted();
             clearInterval(portCheck);
+            sessionTimers.delete(portCheck);
           }
         } catch {}
       }, 500);
-      child.on('close', () => clearInterval(portCheck));
+      sessionTimers.add(portCheck);
     }
 
-    child.on('error', err => {
+    const cleanup = () => {
       clearTimeout(timeout);
-      this.logManager.write(projectId, 'error', `Spawn error: ${err.message}`);
+      sessionTimers.delete(timeout);
+      if (portCheck) {
+        clearInterval(portCheck);
+        sessionTimers.delete(portCheck);
+      }
+      this._timersMap.delete(sessionId);
+    };
+
+    child.on('error', err => {
+      cleanup();
+      this.logManager.write(projectId, 'error', prefix + `Spawn error: ${err.message}`);
       if (isPrimary) {
         this.onStatus(projectId, PROJECT_STATUS.ERROR, null);
         this.timeTracker.markError(sessionId);
@@ -318,8 +349,8 @@ export class ExecutionManager {
     });
 
     child.on('close', code => {
-      clearTimeout(timeout);
-      this.logManager.write(projectId, code === 0 ? 'info' : 'warn', `${isPrimary ? 'Process' : 'Action'} exited (code ${code})`);
+      cleanup();
+      this.logManager.write(projectId, code === 0 ? 'info' : 'warn', prefix + `${isPrimary ? 'Process' : 'Action'} exited (code ${code})`);
       if (isPrimary && this.processManager.isRunning(projectId)) {
         this.onStatus(projectId, PROJECT_STATUS.STOPPED, null);
         this.timeTracker.stop(sessionId);
@@ -348,8 +379,11 @@ export class ExecutionManager {
     }, 1000));
   }
   _stopTick(projectId) {
-    const t = this._tickTimers.get(projectId);
-    if (t) { clearInterval(t); this._tickTimers.delete(projectId); }
+    if (this._tickTimers.has(projectId)) {
+      const t = this._tickTimers.get(projectId);
+      if (t) clearInterval(t);
+      this._tickTimers.delete(projectId);
+    }
   }
 
   _getInstallCmd(project) {
