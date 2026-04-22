@@ -57,7 +57,7 @@ function loadUpdateState() {
 
 function saveUpdateState(state) {
   try {
-    fs.writeFileSync(getSkipCounterPath(), JSON.stringify(state), 'utf8');
+    fs.writeFileSync(getSkipCounterPath(), JSON.stringify(state, null, 2), 'utf8');
   } catch { }
 }
 
@@ -67,7 +67,34 @@ export class Updater {
   constructor(mainWindow) {
     this.mainWindow = mainWindow;
     this._downloadAbort = null;
+    this._isInstalling = false;
     this._registerHandlers();
+    this._performPostUpdateCleanup();
+  }
+
+  _performPostUpdateCleanup() {
+    try {
+      const state = loadUpdateState();
+      const currentVersion = `v${app.getVersion()}`;
+
+      if (state.installing_version) {
+        if (state.installing_version === currentVersion) {
+          console.log(`[Updater] Update to ${currentVersion} successful.`);
+          // Success! Clean up installer
+          if (state.installer_path && fs.existsSync(state.installer_path)) {
+            fs.unlinkSync(state.installer_path);
+            console.log(`[Updater] Cleaned up installer: ${state.installer_path}`);
+          }
+        }
+        
+        // Reset installation state
+        delete state.installing_version;
+        delete state.installer_path;
+        saveUpdateState(state);
+      }
+    } catch (err) {
+      console.warn('[Updater] Cleanup failed:', err.message);
+    }
   }
 
   // Called once after window is created
@@ -169,6 +196,10 @@ export class Updater {
 
         send({ status: 'downloaded', percent: 100 });
 
+        const state = loadUpdateState();
+        state.installer_path = destPath;
+        saveUpdateState(state);
+
         return { ok: true, filePath: destPath };
       } catch (err) {
         send({ status: 'error', message: err.message });
@@ -177,17 +208,36 @@ export class Updater {
     });
 
     // Execute installer and quit
-    ipcMain.on('updater:install', async (_, { filePath }) => {
+    ipcMain.on('updater:install', async (_, { filePath, version }) => {
+      if (this._isInstalling) return;
+      this._isInstalling = true;
+
       try {
+        const state = loadUpdateState();
+        state.installing_version = version;
+        state.installer_path = filePath;
+        saveUpdateState(state);
+
         const { spawn } = await import('child_process');
-        spawn(filePath, ['--silent', '--update'], {
+        
+        // Spawn detached installer
+        // Common EXE flags for silent install: /S or /silent
+        const child = spawn(filePath, ['/S'], {
           detached: true,
           stdio: 'ignore',
-          shell: false,
-        }).unref();
+          windowsHide: false
+        });
 
-        setTimeout(() => app.quit(), 500);
+        child.unref();
+
+        // Give it a tiny bit of time to start before quitting
+        setTimeout(() => {
+          app.isQuitting = true;
+          app.quit();
+        }, 100);
+
       } catch (err) {
+        this._isInstalling = false;
         this.mainWindow?.webContents.send('updater:progress', {
           status: 'error',
           message: `Failed to launch installer: ${err.message}`,
