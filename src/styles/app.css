@@ -2996,6 +2996,48 @@ body {
   letter-spacing: 0.01em;
 }
 
+.sidebar-brand-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t0);
+  letter-spacing: -0.01em;
+}
+
+.sidebar-footer {
+  padding: 10px 12px;
+  border-top: 1px solid var(--b0);
+  background: var(--bg1);
+}
+
+.sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--t2);
+  font-size: 12px;
+  font-family: var(--font);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sidebar-footer-btn:hover {
+  background: var(--b0);
+  color: var(--t0);
+}
+
+.sidebar-footer-btn svg {
+  color: var(--t2);
+}
+
+.sidebar-footer-btn:hover svg {
+  color: var(--accent);
+}
+
 .update-close-btn {
   background: none;
   border: none;

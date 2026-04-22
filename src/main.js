@@ -68,14 +68,18 @@ function initializeApp() {
     logManager, timeTracker, envManager, processManager, ideDetector, portManager,
     (projectId, status, pid) => {
       mainWindow?.webContents.send(IPC_CHANNELS.STATUS_UPDATE, { projectId, status, pid });
-      const p = projectManager?.getById(projectId);
-      if (p && Notification.isSupported()) {
-        if (status === PROJECT_STATUS.RUNNING) {
-          new Notification({ title: p.name, body: 'Project Started' }).show();
-        } else if (status === PROJECT_STATUS.STOPPED) {
-          new Notification({ title: p.name, body: 'Project Stopped' }).show();
-        } else if (status === PROJECT_STATUS.ERROR) {
-          new Notification({ title: p.name, body: 'Error in project' }).show();
+      
+      const settings = settingsManager?.getSettings();
+      if (settings?.notifications_enabled !== 0) {
+        const p = projectManager?.getById(projectId);
+        if (p && Notification.isSupported()) {
+          if (status === PROJECT_STATUS.RUNNING) {
+            new Notification({ title: p.name, body: 'Project Started' }).show();
+          } else if (status === PROJECT_STATUS.STOPPED) {
+            new Notification({ title: p.name, body: 'Project Stopped' }).show();
+          } else if (status === PROJECT_STATUS.ERROR) {
+            new Notification({ title: p.name, body: 'Error in project' }).show();
+          }
         }
       }
     },
@@ -491,7 +495,10 @@ app.whenReady().then(() => {
   // Start updater after window is ready — 3s delay avoids blocking startup
   mainWindow.webContents.once('did-finish-load', () => {
     updater = new Updater(mainWindow);
-    setTimeout(() => updater.checkForUpdates(), 3000);
+    const settings = settingsManager?.getSettings();
+    if (settings?.auto_update_enabled !== 0) {
+      setTimeout(() => updater.checkForUpdates(), 3000);
+    }
   });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

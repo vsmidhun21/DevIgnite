@@ -388,6 +388,7 @@ export default function App() {
             onUnarchiveProject={unarchiveProject}
             onAdd={() => { setEditProject(null); setShowProjModal(true); }}
             onAddGroup={() => { setEditGroup(null); setShowGrpModal(true); }}
+            onOpenSettings={() => setShowSettings(true)}
           />
 
           {!isSidebarCollapsed && (

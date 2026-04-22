@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, memo, useCallback } from 'react';
-import { Search, X, Plus, Star, ArchiveRestore, ChevronRight } from 'lucide-react';
+import { Search, X, Plus, Star, ArchiveRestore, ChevronRight, Settings } from 'lucide-react';
 import { getTagColor } from '../../shared/utils/tagUtils.js';
 
 const api = window.devignite;
@@ -167,7 +167,8 @@ export default memo(function Sidebar({
   onAddGroup,
   onTogglePinProject,
   onTogglePinGroup,
-  onUnarchiveProject
+  onUnarchiveProject,
+  onOpenSettings
 }) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -335,6 +336,13 @@ export default memo(function Sidebar({
           <Plus size={11} strokeWidth={2} /> New workspace
         </button>
       )}
+
+      <div className="sidebar-footer">
+        <button className="sidebar-footer-btn" onClick={() => onOpenSettings?.()} title="Settings">
+          <Settings size={14} strokeWidth={2} />
+          <span>Settings</span>
+        </button>
+      </div>
     </aside>
   );
 });
