@@ -13,6 +13,7 @@ import UpdateModal       from './components/UpdateModal';
 import { useMenuHandlers } from './menuHandlers';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import GlobalSearchModal from './components/GlobalSearchModal';
+import SettingsModal     from './components/SettingsModal';
 
 const api = window.devignite;
 
@@ -44,18 +45,27 @@ export default function App() {
     return parseInt(localStorage.getItem('sidebarWidth')) || 240;
   });
   const [isResizing,  setIsResizing]  = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [appSettings,  setAppSettings]  = useState({
+    shortcuts: {},
+    notifications_enabled: 1,
+    auto_update_enabled: 1,
+    theme: 'system'
+  });
   const unsubRef = useRef([]);
   const sidebarSearchRef = useRef(null);
   const projectDetailRef = useRef(null);
   const sidebarWidthRef = useRef(sidebarWidth);
 
   const loadAll = useCallback(async () => {
-    const [pList, gList] = await Promise.all([
+    const [pList, gList, settings] = await Promise.all([
       api.projects.list(),
       api.groups.list(),
+      api.settings.get(),
     ]);
     setProjects(pList);
     setGroups(gList);
+    if (settings) setAppSettings(settings);
     return pList;
   }, []);
 
@@ -70,6 +80,13 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('theme-light', 'theme-dark');
+    if (appSettings.theme === 'light') root.classList.add('theme-light');
+    else if (appSettings.theme === 'dark') root.classList.add('theme-dark');
+  }, [appSettings.theme]);
 
   useEffect(() => {
     loadAll().then(() => setReady(true));
@@ -314,6 +331,7 @@ export default function App() {
   }, [focusSidebarSearch]);
 
   useKeyboardShortcuts({
+    shortcutsConfig: appSettings.shortcuts,
     onGlobalSearch: toggleGlobalSearch,
     onStartProject: startSelectedProject,
     onStopProject: stopSelectedProject,
@@ -336,8 +354,14 @@ export default function App() {
     stopWork,
     loadAll,
     setReady,
-    clearProjectLogs
+    clearProjectLogs,
+    setShowSettings
   });
+
+  const saveSettings = async (newSettings) => {
+    await api.settings.save(newSettings);
+    setAppSettings(newSettings);
+  };
 
   return (
     <>
@@ -435,8 +459,14 @@ export default function App() {
           stopWork={stopWork}
           onRestartProject={restartProject}
         />
+        {showSettings && (
+          <SettingsModal 
+            settings={appSettings} 
+            onSave={saveSettings} 
+            onClose={() => setShowSettings(false)} 
+          />
+        )}
       </div>
     </>
   );
 }
-

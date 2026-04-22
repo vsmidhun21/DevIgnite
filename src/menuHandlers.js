@@ -13,7 +13,8 @@ export function useMenuHandlers({
   stopWork,
   loadAll,
   setReady,
-  clearProjectLogs
+  clearProjectLogs,
+  setShowSettings
 }) {
   useEffect(() => {
     if (!window.api?.onMenu) return;
@@ -61,6 +62,7 @@ export function useMenuHandlers({
         case "open-folder": openFolder(); break;
         case "open-ide": openIDE(); break;
         case "clear-logs": clearLogs(); break;
+        case "settings": setShowSettings(true); break;
         default: break;
       }
     });

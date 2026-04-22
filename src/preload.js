@@ -132,6 +132,7 @@ contextBridge.exposeInMainWorld('devignite', {
   settings: {
     get: () => ipcRenderer.invoke(CH.APP_SETTINGS_GET),
     update: (status) => ipcRenderer.invoke(CH.APP_SETTINGS_UPDATE, status),
+    save: (settings) => ipcRenderer.invoke('settings:save', settings),
   },
   tags: {
     getCustom: () => ipcRenderer.invoke('tags:getCustom'),
@@ -170,5 +171,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('menu:open-folder', () => callback('open-folder'));
     ipcRenderer.on('menu:open-ide', () => callback('open-ide'));
     ipcRenderer.on('menu:clear-logs', () => callback('clear-logs'));
+    ipcRenderer.on('menu:settings', () => callback('settings'));
   }
 });

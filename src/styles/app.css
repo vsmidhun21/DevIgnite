@@ -1,4 +1,4 @@
-*,
+/* settings-system */ *,
 *::before,
 *::after {
   box-sizing: border-box;
@@ -3200,4 +3200,54 @@ body {
   animation: update-spin 0.9s linear infinite;
 }
 
+.theme-light {
+  --bg0: #ffffff;
+  --bg1: #f4f3f0;
+  --bg2: #eceae5;
+  --bg3: #e4e2dc;
+  --b0: rgba(0, 0, 0, .07);
+  --b1: rgba(0, 0, 0, .12);
+  --b2: rgba(0, 0, 0, .20);
+  --t0: #1a1a18;
+  --t1: #4a4a46;
+  --t2: #888780;
+  --t3: #b4b2ac;
+  --accent: #1a6ef5;
+  --accent-bg: #eff4ff;
+  --accent-t: #0c44b8;
+  --green: #16a34a;
+  --green-bg: #f0fdf4;
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --amber: #d97706;
+  --amber-bg: #fffbeb;
+  --ignite: #f55d1e;
+  --ignite-dark: #d44c10;
+  --ignite-bg: #fff3ef;
+}
 
+.theme-dark {
+  --bg0: #1c1c1a;
+  --bg1: #232320;
+  --bg2: #2a2a26;
+  --bg3: #323230;
+  --b0: rgba(255, 255, 255, .06);
+  --b1: rgba(255, 255, 255, .11);
+  --b2: rgba(255, 255, 255, .18);
+  --t0: #e8e6e0;
+  --t1: #a8a69e;
+  --t2: #686660;
+  --t3: #4a4846;
+  --accent: #4d8fff;
+  --accent-bg: #1a2640;
+  --accent-t: #a0c4ff;
+  --green: #22c55e;
+  --green-bg: #0d2218;
+  --red: #f87171;
+  --red-bg: #2a0e0e;
+  --amber: #fbbf24;
+  --amber-bg: #1f1500;
+  --ignite: #ff6b35;
+  --ignite-dark: #ff8555;
+  --ignite-bg: #2a1200;
+}

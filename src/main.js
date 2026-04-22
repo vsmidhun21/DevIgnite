@@ -139,6 +139,8 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { label: 'New Project', click: () => send('menu:new-project') },
       { label: 'New Workspace', click: () => send('menu:new-workspace') },
       { type: 'separator' },
+      { label: 'Settings', click: () => send('menu:settings') },
+      { type: 'separator' },
       { label: 'Exit', click: () => app.quit() }
     ],
     Edit: [
@@ -426,8 +428,15 @@ ipcMain.handle('add-action', (_, { projectId, name, command }) => actionManager.
 ipcMain.handle('delete-action', (_, id) => actionManager.deleteAction(id));
 
 // ── App Settings ──────────────────────────────────────────────────────────────
-ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_GET, () => settingsManager.getSettings());
+ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_GET, () => {
+  const s = settingsManager.getSettings();
+  if (s && s.shortcuts) {
+    try { s.shortcuts = JSON.parse(s.shortcuts); } catch (e) { s.shortcuts = {}; }
+  }
+  return s;
+});
 ipcMain.handle(IPC_CHANNELS.APP_SETTINGS_UPDATE, (_, status) => settingsManager.updateSponsorshipStatus(status));
+ipcMain.handle('settings:save', (_, settings) => settingsManager.updateSettings(settings));
 ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
 ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
 ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
