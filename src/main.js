@@ -180,7 +180,9 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { type: 'separator' },
       { label: 'About', click: () => shell.openExternal('https://devignite.web.app/#how-it-works') },
       { label: 'Report Issue', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite/issues') },
-      { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') }
+      { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') },
+      { type: 'separator' },
+      { label: 'Show Guide', click: () => send('menu:show-guide') }
     ]
   };
 

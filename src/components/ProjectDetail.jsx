@@ -279,7 +279,7 @@ const ProjectDetail = forwardRef(function ProjectDetail({
                   )}
                 </div>
 
-                <div className="dashboard-section">
+                <div className="dashboard-section" data-tour="custom-commands">
                   <div className="section-title"><Settings size={12} /> Custom Toolbox</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {actions.map(a => (
