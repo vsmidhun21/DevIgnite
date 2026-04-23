@@ -38,9 +38,12 @@ export const IPC_CHANNELS = {
   TODO_TOGGLE: 'todo:toggle', TODO_DELETE: 'todo:delete',
   // App Settings
   APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
+  // Code Health
+  CODE_HEALTH_ANALYZE: 'codeHealth:analyze',
   // Push channels (main → renderer)
   LOG_STREAM: 'log:stream', STATUS_UPDATE: 'status:update', TICK_UPDATE: 'tick:update',
   PORT_CONFLICT: 'port:conflict',
+  CODE_HEALTH_PROGRESS: 'codeHealth:progress',
 };
 
 export const DEFAULT_COMMANDS = {

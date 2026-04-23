@@ -26,6 +26,7 @@ const CH = {
   PORT_CONFLICT:'port:conflict', SESSION_ADD_MANUAL:'session:addManual',
   APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
   UPDATE_AVAILABLE: 'updater:available', UPDATE_PROGRESS: 'updater:progress',
+  CODE_HEALTH_ANALYZE: 'codeHealth:analyze', CODE_HEALTH_PROGRESS: 'codeHealth:progress',
 };
 contextBridge.exposeInMainWorld('devignite', {
   pickFolder:  ()        => ipcRenderer.invoke('dialog:openFolder'),
@@ -139,6 +140,9 @@ contextBridge.exposeInMainWorld('devignite', {
     add: (tag) => ipcRenderer.invoke('tags:add', tag),
     remove: (tag) => ipcRenderer.invoke('tags:remove', tag),
   },
+  codeHealth: {
+    analyze: (projectId, options) => ipcRenderer.invoke(CH.CODE_HEALTH_ANALYZE, { projectId, options }),
+  },
   on: {
     status:        (cb) => on(CH.STATUS_UPDATE, cb),
     tick:          (cb) => on(CH.TICK_UPDATE, cb),
@@ -146,6 +150,7 @@ contextBridge.exposeInMainWorld('devignite', {
     portConflict:  (cb) => on(CH.PORT_CONFLICT, cb),
     updateAvailable:(cb)=> on(CH.UPDATE_AVAILABLE, cb),
     updateProgress: (cb)=> on(CH.UPDATE_PROGRESS, cb),
+    codeHealthProgress: (cb) => on(CH.CODE_HEALTH_PROGRESS, cb),
   },
   updater: {
     later:   (data)   => ipcRenderer.send('updater:later', data),

@@ -23,6 +23,7 @@ import { GitService } from '../core/git-service/GitService.js';
 import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
 import { ActionManager } from '../core/action-manager/index.js';
 import { SettingsManager } from '../core/settings-manager/SettingsManager.js';
+import { CodeHealthManager } from '../core/code-health/index.js';
 import { getDb, closeDb } from '../core/db/database.js';
 import { IPC_CHANNELS, PROJECT_STATUS } from '../shared/constants/index.js';
 
@@ -32,7 +33,7 @@ const __dirname = path.dirname(__filename);
 let mainWindow, dbPath, logsDir;
 let updater;
 let projectManager, configManager, timeTracker, logManager, envManager, settingsManager;
-let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager, taskManager;
+let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager, taskManager, codeHealthManager;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
 
@@ -57,6 +58,11 @@ function initializeApp() {
   actionManager = new ActionManager(dbPath);
   settingsManager = new SettingsManager(dbPath);
   taskManager = new TaskManager();
+  
+  codeHealthManager = new CodeHealthManager(projectManager);
+  codeHealthManager.setProgressCallback((projectId, data) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.CODE_HEALTH_PROGRESS, { projectId, ...data });
+  });
 
   settingsManager.incrementLaunchCount();
 
@@ -446,6 +452,11 @@ ipcMain.handle('settings:save', (_, settings) => settingsManager.updateSettings(
 ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
 ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
 ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
+
+// ── Code Health ───────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.CODE_HEALTH_ANALYZE, async (_, { projectId, options }) => {
+  return await codeHealthManager.analyze(projectId, options);
+});
 
 ipcMain.handle('run-action', async (_, id) => {
   const action = actionManager.db.prepare('SELECT * FROM actions WHERE id = ?').get(id);
