@@ -15,6 +15,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import GlobalSearchModal from './components/GlobalSearchModal';
 import SettingsModal     from './components/SettingsModal';
 import Tour              from './components/Tour';
+import DailyBriefingModal from './components/DailyBriefingModal';
 
 const api = window.devignite;
 
@@ -54,6 +55,7 @@ export default function App() {
     theme: 'system'
   });
   const [isTourActive, setIsTourActive] = useState(false);
+  const [showBriefing, setShowBriefing] = useState(null); // stores the project object for briefing
   const unsubRef = useRef([]);
   const sidebarSearchRef = useRef(null);
   const projectDetailRef = useRef(null);
@@ -233,6 +235,19 @@ export default function App() {
     await api.projects.update(projectId, {active_env:env});
     await reloadProject(projectId);
   };
+
+  useEffect(() => {
+    if (!selectedId || !ready) return;
+    const p = projects.find(x => x.id === selectedId);
+    if (!p || p.archived) return;
+
+    // Check if briefing should be shown
+    api.projects.getBriefing(p.id, p.path).then(res => {
+      if (res.shouldShow) {
+        setShowBriefing(p);
+      }
+    }).catch(e => console.error('Briefing check error:', e));
+  }, [selectedId, ready]);
 
   const togglePinProject = async (id, e) => {
     e?.stopPropagation();
@@ -477,6 +492,14 @@ export default function App() {
           />
         )}
         <Tour isActive={isTourActive} onComplete={() => setIsTourActive(false)} />
+        {showBriefing && (
+          <DailyBriefingModal 
+            project={showBriefing} 
+            onClose={() => setShowBriefing(null)} 
+            onResumeWork={() => startWork(showBriefing.id)}
+            onOpenIDE={() => api.work.openIDE(showBriefing.id)}
+          />
+        )}
       </div>
     </>
   );
