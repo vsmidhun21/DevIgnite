@@ -8,6 +8,8 @@ export default defineConfig({
       external: [
         'better-sqlite3',
         'electron',
+        'fast-glob',
+        /^@babel\/.*/,
         ...builtinModules,
         ...builtinModules.map(m => `node:${m}`),
       ],
