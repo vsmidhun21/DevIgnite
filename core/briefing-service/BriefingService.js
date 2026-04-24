@@ -37,8 +37,11 @@ export class BriefingService {
     const lastCommit = await this.gitService.getLastCommitAsync(projectPath);
     const gitInfo = await this.gitService.getInfoAsync(projectPath);
 
-    // 2. Scan for TODO/FIXME
-    const todos = await this.scanForTodos(projectPath);
+    // 2. Project Todos from Database
+    const dbTodos = this.db.prepare('SELECT * FROM todos WHERE type = ? AND refId = ? AND completed = 0 ORDER BY created_at DESC').all('project', projectId);
+
+    // 3. Scan for TODO/FIXME in code files
+    const fileTodos = await this.scanForTodos(projectPath);
 
     return {
       projectId,
@@ -46,7 +49,10 @@ export class BriefingService {
         ...gitInfo,
         lastCommit
       },
-      todos,
+      todos: [
+        ...dbTodos.map(t => ({ type: 'APP', text: t.text, source: 'app' })),
+        ...fileTodos.map(t => ({ ...t, source: 'file' }))
+      ],
       // We use Git's last changed files as "resume" data
       resume: {
         lastFiles: lastCommit?.changedFiles || []

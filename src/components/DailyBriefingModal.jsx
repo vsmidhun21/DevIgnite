@@ -78,14 +78,14 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
         </div>
 
         <div className="briefing-body">
-          {/* Section 1: Resume */}
-          <div className="briefing-section">
-            <div className="section-title">
-              <History size={16} className="title-icon" />
-              <h2>Resume Where You Left Off</h2>
-            </div>
-            <div className="resume-grid">
-              {resume.lastFiles.length > 0 ? (
+          {/* Section 1: Resume - Only show if there are files */}
+          {resume.lastFiles.length > 0 && (
+            <div className="briefing-section">
+              <div className="section-title">
+                <History size={16} className="title-icon" />
+                <h2>Resume Where You Left Off</h2>
+              </div>
+              <div className="resume-grid">
                 <div className="file-list">
                   {resume.lastFiles.slice(0, 5).map((file, i) => (
                     <div key={i} className="file-item">
@@ -98,14 +98,9 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
                     <div className="file-more">and {resume.lastFiles.length - 5} more files...</div>
                   )}
                 </div>
-              ) : (
-                <div className="empty-section">
-                  <CheckCircle2 size={24} className="empty-icon" />
-                  <p>All clear! No recent changes detected.</p>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="briefing-grid">
             {/* Section 2: Git Summary */}
@@ -151,28 +146,32 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
                 <ListTodo size={16} className="title-icon" />
                 <h2>Pending Tasks</h2>
               </div>
-              <div className="todo-list">
-                {todos.length > 0 ? (
-                  todos.slice(0, 6).map((todo, i) => (
-                    <div key={i} className={`todo-item type-${todo.type.toLowerCase()}`}>
-                      <div className="todo-content">
-                        <span className="todo-type">{todo.type}</span>
-                        <span className="todo-text">{todo.text}</span>
+              <div className="todo-container">
+                <div className="todo-list">
+                  {todos.length > 0 ? (
+                    todos.slice(0, 8).map((todo, i) => (
+                      <div key={i} className={`todo-item type-${todo.type.toLowerCase()}`}>
+                        <div className="todo-content">
+                          <span className={`todo-type ${todo.source === 'app' ? 'type-app' : ''}`}>{todo.type}</span>
+                          <span className="todo-text">{todo.text}</span>
+                        </div>
+                        {todo.source === 'file' && (
+                          <div className="todo-loc">
+                            {todo.file}:{todo.line}
+                          </div>
+                        )}
                       </div>
-                      <div className="todo-loc">
-                        {todo.file}:{todo.line}
-                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-todos">
+                      <CheckCircle2 size={24} className="empty-icon" />
+                      <p>No pending tasks found for this project.</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="empty-todos">
-                    <CheckCircle2 size={24} />
-                    <p>No TODOs or FIXMEs found in the codebase.</p>
-                  </div>
-                )}
-                {todos.length > 6 && (
-                  <div className="todo-more">+{todos.length - 6} more tasks</div>
-                )}
+                  )}
+                  {todos.length > 8 && (
+                    <div className="todo-more">+{todos.length - 8} more tasks</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -189,10 +188,6 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
               <Code2 size={16} />
               <span>Open in IDE</span>
             </button>
-            <button className="action-btn" onClick={handleDismiss}>
-              <ExternalLink size={16} />
-              <span>View Changes</span>
-            </button>
           </div>
           <button className="dismiss-link" onClick={handleDismiss}>
             Maybe later
@@ -202,31 +197,36 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
 
       <style>{`
         .briefing-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 1000;
+          z-index: 10000;
           background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(8px);
+          backdrop-filter: blur(12px);
           animation: fadeIn 0.3s ease-out;
         }
 
         .briefing-modal {
-          width: 800px;
+          width: 860px;
           max-width: 90vw;
           max-height: 85vh;
           background: var(--bg1);
           border: 1px solid var(--b1);
-          border-radius: 20px;
+          border-radius: 24px;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+          box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
           overflow: hidden;
           position: relative;
         }
 
         .briefing-header {
-          padding: 40px 40px 24px;
+          padding: 48px 48px 32px;
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
@@ -239,80 +239,83 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
           gap: 8px;
           background: var(--bg0);
           border: 1px solid var(--b1);
-          padding: 4px 12px;
+          padding: 5px 14px;
           border-radius: 100px;
           width: fit-content;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
         }
 
         .badge-dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          box-shadow: 0 0 8px var(--ignite);
+          background: var(--ignite);
+          box-shadow: 0 0 10px var(--ignite);
         }
 
         .project-badge span {
           font-size: 10px;
           text-transform: uppercase;
-          letter-spacing: 0.1em;
-          font-weight: 700;
+          letter-spacing: 0.12em;
+          font-weight: 800;
           color: var(--t2);
         }
 
         .briefing-header h1 {
-          font-size: 32px;
+          font-size: 36px;
           font-weight: 800;
           margin: 0;
           color: var(--t0);
           letter-spacing: -0.02em;
+          line-height: 1.1;
         }
 
         .welcome-text {
           color: var(--t2);
-          margin: 8px 0 0;
-          font-size: 14px;
+          margin: 12px 0 0;
+          font-size: 15px;
+          opacity: 0.8;
         }
 
         .close-briefing {
           background: var(--bg2);
           border: 1px solid var(--b1);
           color: var(--t2);
-          width: 36px;
-          height: 36px;
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .close-briefing:hover {
           background: var(--bg3);
           color: var(--t0);
-          transform: rotate(90deg);
+          transform: rotate(90deg) scale(1.1);
         }
 
         .briefing-body {
-          padding: 0 40px 40px;
+          padding: 0 48px 48px;
           flex: 1;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
-          gap: 32px;
+          gap: 40px;
         }
 
         .briefing-section {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 18px;
         }
 
         .section-title {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           color: var(--t1);
         }
 
@@ -322,43 +325,52 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
 
         .section-title h2 {
           font-size: 14px;
-          font-weight: 700;
+          font-weight: 800;
           margin: 0;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.08em;
+          opacity: 0.7;
         }
 
-        .resume-grid {
+        .resume-grid, .todo-container {
           background: var(--bg0);
           border: 1px solid var(--b0);
-          border-radius: 12px;
+          border-radius: 16px;
           padding: 20px;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .file-list {
+        .file-list, .todo-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
         }
 
-        .file-item {
+        .file-item, .todo-item {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 8px 12px;
+          gap: 12px;
+          padding: 10px 14px;
           background: var(--bg1);
           border: 1px solid var(--b1);
-          border-radius: 8px;
+          border-radius: 10px;
+          transition: all 0.2s;
+        }
+
+        .file-item:hover, .todo-item:hover {
+          transform: translateX(6px);
+          border-color: var(--ignite-50);
+          background: var(--bg2);
         }
 
         .file-icon {
           color: var(--accent);
-          opacity: 0.7;
+          opacity: 0.8;
         }
 
         .file-name {
           font-weight: 600;
-          font-size: 13px;
+          font-size: 14px;
           color: var(--t1);
         }
 
@@ -366,145 +378,139 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
           font-size: 11px;
           color: var(--t3);
           font-family: var(--font-mono);
-          opacity: 0.6;
+          opacity: 0.5;
         }
 
-        .file-more {
+        .file-more, .todo-more {
           font-size: 12px;
           color: var(--t3);
-          padding-left: 12px;
+          padding: 4px 14px;
           font-style: italic;
+          opacity: 0.7;
         }
 
         .briefing-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 24px;
+          gap: 32px;
         }
 
         .git-summary-card {
           background: var(--bg0);
           border: 1px solid var(--b0);
-          border-radius: 12px;
-          padding: 20px;
+          border-radius: 16px;
+          padding: 24px;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 24px;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .branch-info {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 8px;
         }
 
         .branch-label {
           font-size: 10px;
           color: var(--t3);
           text-transform: uppercase;
-          font-weight: 700;
+          font-weight: 800;
+          letter-spacing: 0.05em;
         }
 
         .branch-name {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           color: var(--ignite);
-          font-weight: 700;
-          font-size: 16px;
+          font-weight: 800;
+          font-size: 18px;
         }
 
         .commit-info {
           background: var(--bg1);
           border: 1px solid var(--b1);
-          border-radius: 8px;
-          padding: 12px;
+          border-radius: 12px;
+          padding: 16px;
         }
 
         .commit-msg {
           display: flex;
           align-items: flex-start;
-          gap: 8px;
-          margin-bottom: 12px;
+          gap: 10px;
+          margin-bottom: 16px;
           color: var(--t1);
-          font-size: 13px;
-          line-height: 1.4;
+          font-size: 14px;
+          line-height: 1.5;
+          font-weight: 500;
         }
 
         .msg-icon {
-          margin-top: 2px;
-          opacity: 0.5;
+          margin-top: 3px;
+          opacity: 0.4;
         }
 
         .commit-meta {
           display: flex;
-          gap: 16px;
+          gap: 20px;
           border-top: 1px solid var(--b1);
-          padding-top: 10px;
+          padding-top: 12px;
         }
 
         .meta-item {
           display: flex;
           align-items: center;
-          gap: 6px;
-          color: var(--t3);
-          font-size: 11px;
-        }
-
-        .todo-list {
-          display: flex;
-          flex-direction: column;
           gap: 8px;
+          color: var(--t3);
+          font-size: 12px;
         }
 
         .todo-item {
-          background: var(--bg0);
-          border: 1px solid var(--b0);
-          border-radius: 8px;
-          padding: 10px 12px;
-          display: flex;
           justify-content: space-between;
-          align-items: center;
-          transition: transform 0.2s;
-        }
-
-        .todo-item:hover {
-          transform: translateX(4px);
-          border-color: var(--b1);
         }
 
         .todo-content {
           display: flex;
           align-items: center;
           gap: 10px;
+          flex: 1;
         }
 
         .todo-type {
           font-size: 9px;
-          font-weight: 800;
-          padding: 2px 6px;
-          border-radius: 4px;
+          font-weight: 900;
+          padding: 2px 8px;
+          border-radius: 6px;
           text-transform: uppercase;
+          letter-spacing: 0.02em;
         }
 
         .type-todo .todo-type { background: #3b82f620; color: #3b82f6; }
         .type-fixme .todo-type { background: #ef444420; color: #ef4444; }
+        .todo-type.type-app { background: var(--ignite-bg); color: var(--ignite); border: 1px solid var(--ignite-20); }
 
         .todo-text {
-          font-size: 12px;
+          font-size: 13px;
           color: var(--t1);
-          font-weight: 500;
+          font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 200px;
         }
 
         .todo-loc {
           font-size: 10px;
           color: var(--t3);
           font-family: var(--font-mono);
-          opacity: 0.6;
+          opacity: 0.5;
+          margin-left: 12px;
         }
 
         .briefing-footer {
-          padding: 24px 40px;
+          padding: 32px 48px;
           background: var(--bg2);
           border-top: 1px solid var(--b1);
           display: flex;
@@ -514,19 +520,19 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
 
         .quick-actions {
           display: flex;
-          gap: 12px;
+          gap: 16px;
         }
 
         .action-btn {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 10px 20px;
-          border-radius: 10px;
-          font-weight: 600;
-          font-size: 13px;
+          gap: 12px;
+          padding: 12px 24px;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 14px;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           border: 1px solid var(--b1);
           background: var(--bg1);
           color: var(--t1);
@@ -536,18 +542,25 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
           background: var(--ignite);
           border-color: var(--ignite);
           color: white;
-          box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+          box-shadow: 0 8px 24px rgba(234, 88, 12, 0.3);
         }
 
         .action-btn.primary:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 32px rgba(234, 88, 12, 0.4);
+          background: var(--ignite-hover, #f97316);
+        }
+
+        .action-btn:not(.primary):hover {
+          background: var(--bg3);
           transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(234, 88, 12, 0.4);
+          border-color: var(--b0);
         }
 
         .hover-arrow {
           opacity: 0;
-          transform: translateX(-5px);
-          transition: all 0.2s;
+          transform: translateX(-8px);
+          transition: all 0.3s;
         }
 
         .action-btn.primary:hover .hover-arrow {
@@ -558,38 +571,43 @@ export default function DailyBriefingModal({ project, onClose, onResumeWork, onO
         .dismiss-link {
           background: none;
           border: none;
-          color: var(--t3);
-          font-size: 13px;
+          color: var(--t2);
+          font-size: 14px;
+          font-weight: 600;
           cursor: pointer;
-          transition: color 0.2s;
+          transition: all 0.2s;
+          padding: 10px 20px;
+          border-radius: 8px;
         }
 
         .dismiss-link:hover {
-          color: var(--t1);
-          text-decoration: underline;
+          color: var(--t0);
+          background: var(--bg3);
+          text-decoration: none;
         }
 
         .fade-out { animation: fadeOut 0.3s ease-in forwards; }
-        .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
         .slide-down { animation: slideDown 0.3s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes slideDown { from { transform: translateY(0); opacity: 1; } to { transform: translateY(30px); opacity: 0; } }
+        @keyframes slideUp { from { transform: translateY(40px) scale(0.95); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+        @keyframes slideDown { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(40px) scale(0.95); opacity: 0; } }
 
-        .empty-section, .empty-todos {
+        .empty-todos {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 20px;
+          padding: 32px;
           color: var(--t3);
-          gap: 12px;
+          gap: 16px;
+          opacity: 0.7;
         }
 
-        .empty-icon { opacity: 0.3; }
-        .empty-section p, .empty-todos p { margin: 0; font-size: 12px; text-align: center; }
+        .empty-icon { opacity: 0.4; }
+        .empty-todos p { margin: 0; font-size: 14px; text-align: center; font-weight: 500; }
       `}</style>
     </div>
   );
