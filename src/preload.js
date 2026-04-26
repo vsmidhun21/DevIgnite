@@ -4,6 +4,7 @@ const CH = {
   PROJECT_LIST:'project:list', PROJECT_GET:'project:get', PROJECT_ADD:'project:add',
   PROJECT_UPDATE:'project:update', PROJECT_DELETE:'project:delete', PROJECT_TOGGLE_PIN:'project:togglePin',
   DETECT_PROJECT:'project:detect', VALIDATE_PROJECT:'project:validate',
+  PROJECT_BRIEFING: 'project:getBriefing', PROJECT_BRIEFING_MARK_SHOWN: 'project:markBriefingShown',
   START_WORK:'work:start', STOP_WORK:'work:stop', RUN_ONLY:'work:run',
   RESTART:'work:restart', START_DOCKER:'work:startDocker',
   OPEN_IDE:'work:openIDE', OPEN_TERMINAL:'work:openTerminal', OPEN_BROWSER:'work:openBrowser',
@@ -53,6 +54,8 @@ contextBridge.exposeInMainWorld('devignite', {
     togglePin:(id)         => ipcRenderer.invoke(CH.PROJECT_TOGGLE_PIN, id),
     detect:   (path)       => ipcRenderer.invoke(CH.DETECT_PROJECT, { projectPath: path }),
     validate: (id)         => ipcRenderer.invoke(CH.VALIDATE_PROJECT, id),
+    getBriefing: (id, path) => ipcRenderer.invoke(CH.PROJECT_BRIEFING, { projectId: id, projectPath: path }),
+    markBriefingShown: (id) => ipcRenderer.invoke(CH.PROJECT_BRIEFING_MARK_SHOWN, id),
   },
   work: {
     start:       (id) => ipcRenderer.invoke(CH.START_WORK, id),

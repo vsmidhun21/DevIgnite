@@ -24,6 +24,7 @@ import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
 import { ActionManager } from '../core/action-manager/index.js';
 import { SettingsManager } from '../core/settings-manager/SettingsManager.js';
 import { CodeHealthManager } from '../core/code-health/index.js';
+import { BriefingService } from '../core/briefing-service/BriefingService.js';
 import { getDb, closeDb } from '../core/db/database.js';
 import { IPC_CHANNELS, PROJECT_STATUS } from '../shared/constants/index.js';
 
@@ -33,7 +34,7 @@ const __dirname = path.dirname(__filename);
 let mainWindow, dbPath, logsDir;
 let updater;
 let projectManager, configManager, timeTracker, logManager, envManager, settingsManager;
-let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager, taskManager, codeHealthManager;
+let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager, taskManager, codeHealthManager, briefingService;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
 
@@ -58,6 +59,7 @@ function initializeApp() {
   actionManager = new ActionManager(dbPath);
   settingsManager = new SettingsManager(dbPath);
   taskManager = new TaskManager();
+  briefingService = new BriefingService(dbPath, gitService);
   
   codeHealthManager = new CodeHealthManager(projectManager);
   codeHealthManager.setProgressCallback((projectId, data) => {
@@ -406,6 +408,19 @@ ipcMain.handle(IPC_CHANNELS.GIT_INFO, (_, { projectPath }) => {
   return info;
 });
 ipcMain.handle(IPC_CHANNELS.GIT_INFO_BATCH, (_, { paths }) => gitService.getBatch(paths));
+
+// ── Briefing ──────────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.PROJECT_BRIEFING, async (_, { projectId, projectPath }) => {
+  const shouldShow = briefingService.shouldShow(projectId);
+  if (!shouldShow) return { shouldShow: false };
+  
+  const data = await briefingService.getBriefingData(projectId, projectPath);
+  return { shouldShow: true, data };
+});
+ipcMain.handle(IPC_CHANNELS.PROJECT_BRIEFING_MARK_SHOWN, (_, projectId) => {
+  briefingService.markShown(projectId);
+  return { ok: true };
+});
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.LOG_READ, (_, { projectId, which }) => logManager.readParsed(projectId, which || 'current'));
