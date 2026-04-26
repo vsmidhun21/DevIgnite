@@ -13,11 +13,32 @@ export class BriefingService {
    * Determine if the briefing should be shown today for a project.
    */
   shouldShow(projectId) {
+    // 1. Check global setting
+    const settings = this.db.prepare('SELECT daily_briefing_enabled FROM app_settings WHERE id = 1').get();
+    if (settings && settings.daily_briefing_enabled === 0) return false;
+
+    // 2. Check if shown today
     const today = new Date().toISOString().split('T')[0];
-    const row = this.db.prepare('SELECT last_shown_date FROM project_briefings WHERE project_id = ?').get(projectId);
+    const briefingRow = this.db.prepare('SELECT last_shown_date FROM project_briefings WHERE project_id = ?').get(projectId);
     
-    if (!row) return true;
-    return row.last_shown_date !== today;
+    if (briefingRow) {
+      return briefingRow.last_shown_date !== today;
+    }
+
+    // 3. Professional logic for new projects: 
+    // We show the briefing starting from the NEXT day after the project was added.
+    // This avoids cluttering the UI immediately after setup.
+    const project = this.db.prepare('SELECT created_at FROM projects WHERE id = ?').get(projectId);
+    if (project) {
+      const addedDate = project.created_at.split(' ')[0]; // YYYY-MM-DD
+      if (addedDate === today) {
+        // If added today, mark it as "shown" for today so it starts appearing tomorrow
+        this.markShown(projectId);
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**

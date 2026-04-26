@@ -32,6 +32,7 @@ export class SettingsManager {
         SET shortcuts = ?,
             notifications_enabled = ?,
             auto_update_enabled = ?,
+            daily_briefing_enabled = ?,
             theme = ?,
             updated_at = datetime('now')
         WHERE id = 1
@@ -60,6 +61,7 @@ export class SettingsManager {
       JSON.stringify(settings.shortcuts),
       settings.notifications_enabled ? 1 : 0,
       settings.auto_update_enabled ? 1 : 0,
+      settings.daily_briefing_enabled ? 1 : 0,
       settings.theme
     );
   }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, RotateCcw, Keyboard, Settings, Moon, Sun, Monitor, Bell, Download } from 'lucide-react';
+import { X, RotateCcw, Keyboard, Settings, Moon, Sun, Monitor, Bell, Download, Clock } from 'lucide-react';
 
 const ACTIONS = [
   { id: 'openSearch',     name: 'Open Global Search' },
@@ -209,6 +209,22 @@ export default function SettingsModal({ settings, onSave, onClose }) {
                         type="checkbox" 
                         checked={localSettings.auto_update_enabled !== 0} 
                         onChange={e => setLocalSettings(prev => ({ ...prev, auto_update_enabled: e.target.checked ? 1 : 0 }))} 
+                      />
+                      <span className="switch-slider"></span>
+                    </label>
+                  </div>
+
+                  <div className="option-tile">
+                    <div className="option-icon"><Clock size={14} /></div>
+                    <div className="option-info">
+                      <span className="option-name">Daily Project Briefing</span>
+                      <span className="option-desc">Show an intelligent summary when you first open a project each day</span>
+                    </div>
+                    <label className="switch-toggle">
+                      <input 
+                        type="checkbox" 
+                        checked={localSettings.daily_briefing_enabled !== 0} 
+                        onChange={e => setLocalSettings(prev => ({ ...prev, daily_briefing_enabled: e.target.checked ? 1 : 0 }))} 
                       />
                       <span className="switch-slider"></span>
                     </label>

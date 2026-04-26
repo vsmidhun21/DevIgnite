@@ -52,6 +52,7 @@ export default function App() {
     shortcuts: {},
     notifications_enabled: 1,
     auto_update_enabled: 1,
+    daily_briefing_enabled: 1,
     theme: 'system'
   });
   const [isTourActive, setIsTourActive] = useState(false);

@@ -120,6 +120,7 @@ function runMigrations(database) {
       shortcuts TEXT DEFAULT '{"openSearch":"Control+k","startProject":"Control+Enter","stopProject":"Control+Shift+Enter","restartProject":"Control+r","toggleSidebar":"Control+b","focusLogs":"Control+l","focusSearch":"Control+f"}',
       notifications_enabled INTEGER DEFAULT 1,
       auto_update_enabled INTEGER DEFAULT 1,
+      daily_briefing_enabled INTEGER DEFAULT 1,
       theme TEXT DEFAULT 'system',
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -149,6 +150,7 @@ function runMigrations(database) {
   safe(`ALTER TABLE app_settings ADD COLUMN shortcuts TEXT DEFAULT '{"openSearch":"Control+k","startProject":"Control+Enter","stopProject":"Control+Shift+Enter","restartProject":"Control+r","toggleSidebar":"Control+b","focusLogs":"Control+l","focusSearch":"Control+f"}'`);
   safe(`ALTER TABLE app_settings ADD COLUMN notifications_enabled INTEGER DEFAULT 1`);
   safe(`ALTER TABLE app_settings ADD COLUMN auto_update_enabled INTEGER DEFAULT 1`);
+  safe(`ALTER TABLE app_settings ADD COLUMN daily_briefing_enabled INTEGER DEFAULT 1`);
   safe(`ALTER TABLE app_settings ADD COLUMN theme TEXT DEFAULT 'system'`);
   safe(`CREATE TABLE IF NOT EXISTS project_briefings (project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE, last_shown_date TEXT NOT NULL)`);
 }
