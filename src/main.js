@@ -23,6 +23,8 @@ import { GitService } from '../core/git-service/GitService.js';
 import { NotesTodosManager } from '../core/notes-todos/NotesTodosManager.js';
 import { ActionManager } from '../core/action-manager/index.js';
 import { SettingsManager } from '../core/settings-manager/SettingsManager.js';
+import { CodeHealthManager } from '../core/code-health/index.js';
+import { BriefingService } from '../core/briefing-service/BriefingService.js';
 import { getDb, closeDb } from '../core/db/database.js';
 import { IPC_CHANNELS, PROJECT_STATUS } from '../shared/constants/index.js';
 
@@ -32,12 +34,381 @@ const __dirname = path.dirname(__filename);
 let mainWindow, dbPath, logsDir;
 let updater;
 let projectManager, configManager, timeTracker, logManager, envManager, settingsManager;
-let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager, taskManager;
+let executionManager, projectDetector, ideDetector, groupManager, portManager, gitService, notesTodosManager, actionManager, taskManager, codeHealthManager, briefingService;
 const processManager = new ProcessManager();
 const activeSessions = new Map();
 
 // Git info cache: projectPath → { info, ts }
 const gitCache = new Map();
+
+const PROJECT_EXPORT_SCHEMA_VERSION = 1;
+const IMPORTED_GROUP_SUFFIX = ' (Imported)';
+
+function normalizeProjectPath(projectPath) {
+  if (typeof projectPath !== 'string' || !projectPath.trim()) return '';
+  let normalized = path.resolve(projectPath.trim()).replace(/[\\/]+$/, '');
+  if (process.platform === 'win32') normalized = normalized.toLowerCase();
+  return normalized;
+}
+
+function parseJsonValue(value, fallback) {
+  if (value == null) return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function parseEnvVars(envVars) {
+  if (envVars && typeof envVars === 'object' && !Array.isArray(envVars)) return envVars;
+  return parseJsonValue(envVars, {});
+}
+
+function getStoredActions(projectId) {
+  return actionManager.db
+    .prepare('SELECT name, command FROM actions WHERE projectId = ? ORDER BY id ASC')
+    .all(projectId);
+}
+
+function buildExportPayload() {
+  const projects = projectManager.listAll();
+  const projectsById = new Map(projects.map((project) => [project.id, project]));
+
+  return {
+    app: 'DevIgnite',
+    schemaVersion: PROJECT_EXPORT_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    tags: settingsManager.getCustomTags(),
+    projects: projects.map((project) => ({
+      name: project.name,
+      path: project.path,
+      type: project.type,
+      archived: !!project.archived,
+      isPinned: !!project.isPinned,
+      command: project.command,
+      ide: project.ide,
+      ide_path: project.ide_path,
+      port: project.port ?? null,
+      url: project.url ?? null,
+      active_env: project.active_env ?? 'dev',
+      env_file: project.env_file ?? null,
+      startup_steps: parseJsonValue(project.startup_steps, []),
+      open_terminal: !!project.open_terminal,
+      open_browser: !!project.open_browser,
+      install_deps: !!project.install_deps,
+      tag: project.tag ?? null,
+      environments: configManager.listEnvs(project.id).map((env) => ({
+        name: env.name,
+        command: env.command ?? null,
+        port: env.port ?? null,
+        env_vars: parseEnvVars(env.env_vars),
+      })),
+      actions: getStoredActions(project.id).map((action) => ({
+        name: action.name,
+        command: action.command,
+      })),
+    })),
+    groups: groupManager.listAll().map((group) => ({
+      name: group.name,
+      color: group.color,
+      isPinned: !!group.isPinned,
+      projectPaths: group.projectIds
+        .map((projectId) => projectsById.get(projectId)?.path)
+        .filter(Boolean),
+    })),
+  };
+}
+
+function validateImportPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Import file must contain a JSON object.');
+  }
+  if (!Array.isArray(payload.projects)) {
+    throw new Error('Import file is missing a valid "projects" array.');
+  }
+  if (payload.groups != null && !Array.isArray(payload.groups)) {
+    throw new Error('Import file has an invalid "groups" section.');
+  }
+  if (payload.tags != null && !Array.isArray(payload.tags)) {
+    throw new Error('Import file has an invalid "tags" section.');
+  }
+
+  payload.projects.forEach((project, index) => {
+    if (!project || typeof project !== 'object' || Array.isArray(project)) {
+      throw new Error(`Project #${index + 1} is invalid.`);
+    }
+    if (typeof project.name !== 'string' || !project.name.trim()) {
+      throw new Error(`Project #${index + 1} is missing a name.`);
+    }
+    if (typeof project.path !== 'string' || !project.path.trim()) {
+      throw new Error(`Project #${index + 1} is missing a path.`);
+    }
+    if (project.environments != null && !Array.isArray(project.environments)) {
+      throw new Error(`Project "${project.name}" has an invalid environments list.`);
+    }
+    if (project.actions != null && !Array.isArray(project.actions)) {
+      throw new Error(`Project "${project.name}" has an invalid actions list.`);
+    }
+  });
+
+  (payload.groups || []).forEach((group, index) => {
+    if (!group || typeof group !== 'object' || Array.isArray(group)) {
+      throw new Error(`Workspace #${index + 1} is invalid.`);
+    }
+    if (typeof group.name !== 'string' || !group.name.trim()) {
+      throw new Error(`Workspace #${index + 1} is missing a name.`);
+    }
+    if (group.projectPaths != null && !Array.isArray(group.projectPaths)) {
+      throw new Error(`Workspace "${group.name}" has an invalid projectPaths list.`);
+    }
+  });
+}
+
+function getImportedGroupName(name, existingNames) {
+  const trimmedName = typeof name === 'string' && name.trim() ? name.trim() : 'Imported Workspace';
+  if (!existingNames.has(trimmedName)) {
+    existingNames.add(trimmedName);
+    return { name: trimmedName, renamed: false };
+  }
+
+  let counter = 1;
+  let candidate = `${trimmedName}${IMPORTED_GROUP_SUFFIX}`;
+  while (existingNames.has(candidate)) {
+    counter += 1;
+    candidate = `${trimmedName}${IMPORTED_GROUP_SUFFIX} ${counter}`;
+  }
+  existingNames.add(candidate);
+  return { name: candidate, renamed: true };
+}
+
+function importProjectPayload(payload) {
+  validateImportPayload(payload);
+
+  const db = getDb(dbPath);
+  const importTransaction = db.transaction((data) => {
+    const pathToProjectId = new Map(
+      projectManager.listAll().map((project) => [normalizeProjectPath(project.path), project.id])
+    );
+    const existingGroupNames = new Set(groupManager.listAll().map((group) => group.name));
+    const existingTags = new Set(settingsManager.getCustomTags().map((tag) => tag.trim()).filter(Boolean));
+    const summary = {
+      importedProjects: 0,
+      skippedProjects: 0,
+      importedGroups: 0,
+      renamedGroups: 0,
+      importedTags: 0,
+      importedActions: 0,
+      importedEnvironments: 0,
+    };
+
+    for (const rawTag of data.tags || []) {
+      if (typeof rawTag !== 'string') continue;
+      const tag = rawTag.trim();
+      if (!tag || existingTags.has(tag)) continue;
+      settingsManager.addCustomTag(tag);
+      existingTags.add(tag);
+      summary.importedTags += 1;
+    }
+
+    for (const project of data.projects) {
+      const normalizedPath = normalizeProjectPath(project.path);
+      if (!normalizedPath || pathToProjectId.has(normalizedPath)) {
+        summary.skippedProjects += 1;
+        continue;
+      }
+
+      if (typeof project.tag === 'string') {
+        const tag = project.tag.trim();
+        if (tag && !existingTags.has(tag)) {
+          settingsManager.addCustomTag(tag);
+          existingTags.add(tag);
+          summary.importedTags += 1;
+        }
+      }
+
+      const created = projectManager.add({
+        name: project.name,
+        path: project.path,
+        type: project.type ?? 'Custom',
+        archived: !!project.archived,
+        command: project.command ?? '',
+        ide: project.ide ?? 'VS Code',
+        ide_path: project.ide_path ?? null,
+        port: project.port ?? null,
+        url: project.url ?? null,
+        active_env: project.active_env ?? 'dev',
+        env_file: project.env_file ?? null,
+        startup_steps: Array.isArray(project.startup_steps)
+          ? project.startup_steps
+          : parseJsonValue(project.startup_steps, []),
+        open_terminal: project.open_terminal ?? true,
+        open_browser: project.open_browser ?? true,
+        install_deps: !!project.install_deps,
+        tag: project.tag ?? null,
+      });
+
+      const projectId = Number(created.id);
+      pathToProjectId.set(normalizedPath, projectId);
+      summary.importedProjects += 1;
+
+      if (project.isPinned) {
+        projectManager.togglePin(projectId);
+      }
+
+      for (const env of project.environments || []) {
+        if (typeof env?.name !== 'string' || !env.name.trim()) continue;
+        configManager.setEnvConfig(projectId, env.name, {
+          command: env.command ?? null,
+          port: env.port ?? null,
+          env_vars: parseEnvVars(env.env_vars),
+        });
+        summary.importedEnvironments += 1;
+      }
+
+      for (const action of project.actions || []) {
+        if (typeof action?.name !== 'string' || !action.name.trim()) continue;
+        if (typeof action?.command !== 'string' || !action.command.trim()) continue;
+        actionManager.addAction(projectId, action.name.trim(), action.command);
+        summary.importedActions += 1;
+      }
+    }
+
+    for (const group of data.groups || []) {
+      const resolvedProjectIds = (group.projectPaths || [])
+        .map((projectPath) => pathToProjectId.get(normalizeProjectPath(projectPath)))
+        .filter((projectId) => projectId != null);
+      const { name, renamed } = getImportedGroupName(group.name, existingGroupNames);
+      const createdGroup = groupManager.add({
+        name,
+        projectIds: [...new Set(resolvedProjectIds)],
+        color: group.color || '#1a6ef5',
+      });
+
+      if (group.isPinned) {
+        groupManager.togglePin(createdGroup.id);
+      }
+
+      summary.importedGroups += 1;
+      if (renamed) summary.renamedGroups += 1;
+    }
+
+    return summary;
+  });
+
+  return importTransaction(payload);
+}
+
+function formatImportSummary(summary) {
+  return [
+    `Projects imported: ${summary.importedProjects}`,
+    `Projects skipped: ${summary.skippedProjects}`,
+    `Workspaces imported: ${summary.importedGroups}`,
+    `Workspaces renamed: ${summary.renamedGroups}`,
+    `Tags imported: ${summary.importedTags}`,
+    `Actions imported: ${summary.importedActions}`,
+    `Environment configs imported: ${summary.importedEnvironments}`,
+  ].join('\n');
+}
+
+async function exportProjects() {
+  const defaultFileName = `devignite-projects-${new Date().toISOString().slice(0, 10)}.json`;
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export Projects',
+    defaultPath: path.join(app.getPath('documents'), defaultFileName),
+    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  const payload = buildExportPayload();
+  fs.writeFileSync(result.filePath, JSON.stringify(payload, null, 2), 'utf8');
+  return {
+    ok: true,
+    filePath: result.filePath,
+    projectCount: payload.projects.length,
+    groupCount: payload.groups.length,
+  };
+}
+
+async function importProjects() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import Projects',
+    properties: ['openFile'],
+    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { ok: false, canceled: true };
+  }
+
+  const filePath = result.filePaths[0];
+  const raw = fs.readFileSync(filePath, 'utf8');
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error('The selected file is not valid JSON.');
+  }
+
+  const summary = importProjectPayload(payload);
+  mainWindow?.webContents.send('menu:refresh-projects');
+
+  return {
+    ok: true,
+    filePath,
+    ...summary,
+  };
+}
+
+async function runProjectExport() {
+  try {
+    const result = await exportProjects();
+    if (!result.ok || result.canceled) return result;
+
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Export Complete',
+      message: 'Projects exported successfully.',
+      detail: `Saved to:\n${result.filePath}\n\nProjects: ${result.projectCount}\nWorkspaces: ${result.groupCount}`,
+    });
+    return result;
+  } catch (error) {
+    await dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Export Failed',
+      message: 'Unable to export projects.',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function runProjectImport() {
+  try {
+    const result = await importProjects();
+    if (!result.ok || result.canceled) return result;
+
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Import Complete',
+      message: 'Project data imported successfully.',
+      detail: `${result.filePath}\n\n${formatImportSummary(result)}`,
+    });
+    return result;
+  } catch (error) {
+    await dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Import Failed',
+      message: 'Unable to import project data.',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
 
 function initializeApp() {
   const userData = app.getPath('userData');
@@ -57,6 +428,12 @@ function initializeApp() {
   actionManager = new ActionManager(dbPath);
   settingsManager = new SettingsManager(dbPath);
   taskManager = new TaskManager();
+  briefingService = new BriefingService(dbPath, gitService);
+  
+  codeHealthManager = new CodeHealthManager(projectManager);
+  codeHealthManager.setProgressCallback((projectId, data) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.CODE_HEALTH_PROGRESS, { projectId, ...data });
+  });
 
   settingsManager.incrementLaunchCount();
 
@@ -124,6 +501,8 @@ ipcMain.handle('dialog:openFile', async (_, { filters } = {}) => {
 ipcMain.handle('open-folder', async (_, path) => {
   shell.openPath(path);
 });
+ipcMain.handle('project:export', () => runProjectExport());
+ipcMain.handle('project:import', () => runProjectImport());
 
 // ── Window Controls ───────────────────────────────────────────────────────────
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
@@ -142,6 +521,9 @@ ipcMain.on('menu:popup', (event, menuName) => {
     File: [
       { label: 'New Project', click: () => send('menu:new-project') },
       { label: 'New Workspace', click: () => send('menu:new-workspace') },
+      { type: 'separator' },
+      { label: 'Export Projects', click: () => { void runProjectExport(); } },
+      { label: 'Import Projects', click: () => { void runProjectImport(); } },
       { type: 'separator' },
       { label: 'Settings', click: () => send('menu:settings') },
       { type: 'separator' },
@@ -180,7 +562,9 @@ ipcMain.on('menu:popup', (event, menuName) => {
       { type: 'separator' },
       { label: 'About', click: () => shell.openExternal('https://devignite.web.app/#how-it-works') },
       { label: 'Report Issue', click: () => shell.openExternal('https://github.com/vsmidhun21/DevIgnite/issues') },
-      { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') }
+      { label: 'Website', click: () => shell.openExternal('https://devignite.web.app/') },
+      { type: 'separator' },
+      { label: 'Show Guide', click: () => send('menu:show-guide') }
     ]
   };
 
@@ -399,6 +783,19 @@ ipcMain.handle(IPC_CHANNELS.GIT_INFO, (_, { projectPath }) => {
 });
 ipcMain.handle(IPC_CHANNELS.GIT_INFO_BATCH, (_, { paths }) => gitService.getBatch(paths));
 
+// ── Briefing ──────────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.PROJECT_BRIEFING, async (_, { projectId, projectPath }) => {
+  const shouldShow = briefingService.shouldShow(projectId);
+  if (!shouldShow) return { shouldShow: false };
+  
+  const data = await briefingService.getBriefingData(projectId, projectPath);
+  return { shouldShow: true, data };
+});
+ipcMain.handle(IPC_CHANNELS.PROJECT_BRIEFING_MARK_SHOWN, (_, projectId) => {
+  briefingService.markShown(projectId);
+  return { ok: true };
+});
+
 // ── Logs ──────────────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.LOG_READ, (_, { projectId, which }) => logManager.readParsed(projectId, which || 'current'));
 ipcMain.handle(IPC_CHANNELS.LOG_META, (_, projectId) => logManager.getMeta(projectId));
@@ -444,6 +841,11 @@ ipcMain.handle('settings:save', (_, settings) => settingsManager.updateSettings(
 ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
 ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
 ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
+
+// ── Code Health ───────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.CODE_HEALTH_ANALYZE, async (_, { projectId, options }) => {
+  return await codeHealthManager.analyze(projectId, options);
+});
 
 ipcMain.handle('run-action', async (_, id) => {
   const action = actionManager.db.prepare('SELECT * FROM actions WHERE id = ?').get(id);

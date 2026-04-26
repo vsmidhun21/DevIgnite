@@ -6,6 +6,7 @@ export const IPC_CHANNELS = {
   PROJECT_ADD: 'project:add', PROJECT_UPDATE: 'project:update',
   PROJECT_DELETE: 'project:delete', PROJECT_TOGGLE_PIN: 'project:togglePin',
   DETECT_PROJECT: 'project:detect', VALIDATE_PROJECT: 'project:validate',
+  PROJECT_BRIEFING: 'project:getBriefing', PROJECT_BRIEFING_MARK_SHOWN: 'project:markBriefingShown',
   // Work
   START_WORK: 'work:start', STOP_WORK: 'work:stop', RUN_ONLY: 'work:run',
   RESTART: 'work:restart', START_DOCKER: 'work:startDocker',
@@ -38,9 +39,12 @@ export const IPC_CHANNELS = {
   TODO_TOGGLE: 'todo:toggle', TODO_DELETE: 'todo:delete',
   // App Settings
   APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
+  // Code Health
+  CODE_HEALTH_ANALYZE: 'codeHealth:analyze',
   // Push channels (main → renderer)
   LOG_STREAM: 'log:stream', STATUS_UPDATE: 'status:update', TICK_UPDATE: 'tick:update',
   PORT_CONFLICT: 'port:conflict',
+  CODE_HEALTH_PROGRESS: 'codeHealth:progress',
 };
 
 export const DEFAULT_COMMANDS = {

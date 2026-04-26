@@ -60,6 +60,7 @@ export default memo(function Header({ selectedGroup, selectedProject, runningCou
               key={menu}
               className={`menu-btn ${activeMenu === menu ? 'active' : ''}`}
               onClick={(e) => { e.stopPropagation(); handleMenuClick(menu); }}
+              data-tour={menu === 'Help' ? 'help-menu' : undefined}
             >
               {menu}
             </button>

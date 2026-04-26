@@ -35,7 +35,8 @@ export default memo(function StartWork({ project, onStartWork, onStopWork }) {
     <div className="start-work-block">
       <button
         className={`start-work-btn ${isRunning?'running':''} ${loading?'loading':''}`}
-        onClick={click} disabled={loading}>
+        onClick={click} disabled={loading}
+        data-tour="start-work">
         {loading
           ? <Loader2 size={14} strokeWidth={2} className="spin"/>
           : isRunning

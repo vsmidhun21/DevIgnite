@@ -2,10 +2,11 @@ import { useEffect, useState, memo, lazy, Suspense, forwardRef, useImperativeHan
 import StartWork from './StartWork';
 import LogViewer from './LogViewer';
 import EnvSelector from './EnvSelector';
+import CodeHealthModal from './CodeHealthModal';
 
 const ProductivityPanel = lazy(() => import('./ProductivityPanel'));
 const NotesTodosPanel = lazy(() => import('./NotesTodosPanel'));
-import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
+import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw, ShieldAlert } from 'lucide-react';
 
 const api = window.devignite;
 
@@ -22,6 +23,7 @@ const ProjectDetail = forwardRef(function ProjectDetail({
     return parseInt(localStorage.getItem('terminalHeight')) || 280;
   });
   const [isResizingTerminal, setIsResizingTerminal] = useState(false);
+  const [showHealthModal, setShowHealthModal] = useState(false);
   const logViewerRef = useRef(null);
   const DEFAULT_TERMINAL_HEIGHT = 280;
 
@@ -161,6 +163,9 @@ const ProjectDetail = forwardRef(function ProjectDetail({
         <button className="action-btn" onClick={() => api.work.openIDE(project.id)} title="Open IDE">
           <Code2 size={11} strokeWidth={2} /> IDE
         </button>
+        <button className="action-btn" onClick={() => setShowHealthModal(true)} title="Analyze Code Health">
+          <ShieldAlert size={11} strokeWidth={2} /> Code Health
+        </button>
         <button className="action-btn" onClick={() => api.work.openTerminal(project.id)} title="Terminal">
           <Terminal size={11} strokeWidth={2} /> Terminal
         </button>
@@ -279,7 +284,7 @@ const ProjectDetail = forwardRef(function ProjectDetail({
                   )}
                 </div>
 
-                <div className="dashboard-section">
+                <div className="dashboard-section" data-tour="custom-commands">
                   <div className="section-title"><Settings size={12} /> Custom Toolbox</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {actions.map(a => (
@@ -350,7 +355,11 @@ const ProjectDetail = forwardRef(function ProjectDetail({
           </div>
           <LogViewer ref={logViewerRef} projectId={project.id} onClearLogs={onClearLogs} />
         </div>
+        {/* </div> */}
       </div>
+      {showHealthModal && (
+        <CodeHealthModal project={project} onClose={() => setShowHealthModal(false)} />
+      )}
     </div>
   );
 });

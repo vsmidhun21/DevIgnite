@@ -4,6 +4,7 @@ const CH = {
   PROJECT_LIST:'project:list', PROJECT_GET:'project:get', PROJECT_ADD:'project:add',
   PROJECT_UPDATE:'project:update', PROJECT_DELETE:'project:delete', PROJECT_TOGGLE_PIN:'project:togglePin',
   DETECT_PROJECT:'project:detect', VALIDATE_PROJECT:'project:validate',
+  PROJECT_BRIEFING: 'project:getBriefing', PROJECT_BRIEFING_MARK_SHOWN: 'project:markBriefingShown',
   START_WORK:'work:start', STOP_WORK:'work:stop', RUN_ONLY:'work:run',
   RESTART:'work:restart', START_DOCKER:'work:startDocker',
   OPEN_IDE:'work:openIDE', OPEN_TERMINAL:'work:openTerminal', OPEN_BROWSER:'work:openBrowser',
@@ -26,6 +27,7 @@ const CH = {
   PORT_CONFLICT:'port:conflict', SESSION_ADD_MANUAL:'session:addManual',
   APP_SETTINGS_GET: 'app:settingsGet', APP_SETTINGS_UPDATE: 'app:settingsUpdate',
   UPDATE_AVAILABLE: 'updater:available', UPDATE_PROGRESS: 'updater:progress',
+  CODE_HEALTH_ANALYZE: 'codeHealth:analyze', CODE_HEALTH_PROGRESS: 'codeHealth:progress',
 };
 contextBridge.exposeInMainWorld('devignite', {
   pickFolder:  ()        => ipcRenderer.invoke('dialog:openFolder'),
@@ -52,6 +54,8 @@ contextBridge.exposeInMainWorld('devignite', {
     togglePin:(id)         => ipcRenderer.invoke(CH.PROJECT_TOGGLE_PIN, id),
     detect:   (path)       => ipcRenderer.invoke(CH.DETECT_PROJECT, { projectPath: path }),
     validate: (id)         => ipcRenderer.invoke(CH.VALIDATE_PROJECT, id),
+    getBriefing: (id, path) => ipcRenderer.invoke(CH.PROJECT_BRIEFING, { projectId: id, projectPath: path }),
+    markBriefingShown: (id) => ipcRenderer.invoke(CH.PROJECT_BRIEFING_MARK_SHOWN, id),
   },
   work: {
     start:       (id) => ipcRenderer.invoke(CH.START_WORK, id),
@@ -139,6 +143,9 @@ contextBridge.exposeInMainWorld('devignite', {
     add: (tag) => ipcRenderer.invoke('tags:add', tag),
     remove: (tag) => ipcRenderer.invoke('tags:remove', tag),
   },
+  codeHealth: {
+    analyze: (projectId, options) => ipcRenderer.invoke(CH.CODE_HEALTH_ANALYZE, { projectId, options }),
+  },
   on: {
     status:        (cb) => on(CH.STATUS_UPDATE, cb),
     tick:          (cb) => on(CH.TICK_UPDATE, cb),
@@ -146,6 +153,7 @@ contextBridge.exposeInMainWorld('devignite', {
     portConflict:  (cb) => on(CH.PORT_CONFLICT, cb),
     updateAvailable:(cb)=> on(CH.UPDATE_AVAILABLE, cb),
     updateProgress: (cb)=> on(CH.UPDATE_PROGRESS, cb),
+    codeHealthProgress: (cb) => on(CH.CODE_HEALTH_PROGRESS, cb),
   },
   updater: {
     later:   (data)   => ipcRenderer.send('updater:later', data),
@@ -164,13 +172,17 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('menu:stop-work', () => callback('stop-work'));
     ipcRenderer.on('menu:start-workspace', () => callback('start-workspace'));
     ipcRenderer.on('menu:install-deps', () => callback('install-deps'));
+    ipcRenderer.on('menu:install-dependencies', () => callback('install-deps'));
     ipcRenderer.on('menu:toggle-sidebar', () => callback('toggle-sidebar'));
     ipcRenderer.on('menu:toggle-logs', () => callback('toggle-logs'));
     ipcRenderer.on('menu:refresh', () => callback('refresh'));
+    ipcRenderer.on('menu:refresh-projects', () => callback('refresh'));
+    ipcRenderer.on('menu:toggle-fullscreen', () => callback('toggle-fullscreen'));
     ipcRenderer.on('menu:kill-port', () => callback('kill-port'));
     ipcRenderer.on('menu:open-folder', () => callback('open-folder'));
     ipcRenderer.on('menu:open-ide', () => callback('open-ide'));
     ipcRenderer.on('menu:clear-logs', () => callback('clear-logs'));
     ipcRenderer.on('menu:settings', () => callback('settings'));
+    ipcRenderer.on('menu:show-guide', () => callback('show-guide'));
   }
 });

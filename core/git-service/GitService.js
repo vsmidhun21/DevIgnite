@@ -77,5 +77,39 @@ export class GitService {
     for (const p of projectPaths) result[p] = this.getInfo(p);
     return result;
   }
+
+  /**
+   * Get details of the last commit.
+   */
+  async getLastCommitAsync(projectPath) {
+    if (!fs.existsSync(path.join(projectPath, '.git'))) return null;
+
+    try {
+      // %H: hash, %an: author name, %at: author date (unix), %s: subject
+      const infoCmd = 'git log -1 --format="%H|%an|%at|%s"';
+      const filesCmd = 'git diff-tree --no-commit-id --name-only -r HEAD';
+
+      const [info, files] = await Promise.all([
+        execAsync(infoCmd, { cwd: projectPath, timeout: 3000 }).then(r => r.stdout.trim()).catch(() => null),
+        execAsync(filesCmd, { cwd: projectPath, timeout: 3000 }).then(r => r.stdout.trim()).catch(() => null)
+      ]);
+
+      if (!info) return null;
+
+      const [hash, author, timestamp, message] = info.split('|');
+      const changedFiles = files ? files.split('\n').filter(Boolean) : [];
+
+      return {
+        hash,
+        author,
+        timestamp: parseInt(timestamp) * 1000, // to ms
+        message,
+        changedFiles
+      };
+    } catch (e) {
+      console.error('Git last commit error:', e);
+      return null;
+    }
+  }
 }
 

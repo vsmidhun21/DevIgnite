@@ -1,7 +1,7 @@
 {
   "name": "devignite",
   "productName": "DevIgnite",
-  "version": "2.3.1",
+  "version": "3.0.0",
   "description": "Ignite your dev projects instantly",
   "main": ".vite/build/main.js",
   "author": "Midhun V S",
@@ -14,8 +14,11 @@
     "lint": "echo \"No linting configured\""
   },
   "dependencies": {
+    "@babel/parser": "^7.29.2",
+    "@babel/traverse": "^7.29.0",
     "better-sqlite3": "^9.6.0",
     "electron-squirrel-startup": "^1.0.1",
+    "fast-glob": "^3.3.3",
     "lucide-react": "^0.344.0",
     "recharts": "^3.8.1",
     "uuid": "^9.0.0"

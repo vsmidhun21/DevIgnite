@@ -6,7 +6,6 @@ import { createWriteStream } from 'fs';
 // import { Readable } from 'stream';
 
 const REPO_API = 'https://api.github.com/repos/vsmidhun21/DevIgnite/releases/latest';
-const SKIP_COUNTER_KEY = 'update_skip_counter';
 const SKIP_THRESHOLD = 3;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -14,7 +14,8 @@ export function useMenuHandlers({
   loadAll,
   setReady,
   clearProjectLogs,
-  setShowSettings
+  setShowSettings,
+  onShowGuide
 }) {
   useEffect(() => {
     if (!window.api?.onMenu) return;
@@ -63,6 +64,7 @@ export function useMenuHandlers({
         case "open-ide": openIDE(); break;
         case "clear-logs": clearLogs(); break;
         case "settings": setShowSettings(true); break;
+        case "show-guide": onShowGuide?.(); break;
         default: break;
       }
     });
