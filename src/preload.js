@@ -172,9 +172,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('menu:stop-work', () => callback('stop-work'));
     ipcRenderer.on('menu:start-workspace', () => callback('start-workspace'));
     ipcRenderer.on('menu:install-deps', () => callback('install-deps'));
+    ipcRenderer.on('menu:install-dependencies', () => callback('install-deps'));
     ipcRenderer.on('menu:toggle-sidebar', () => callback('toggle-sidebar'));
     ipcRenderer.on('menu:toggle-logs', () => callback('toggle-logs'));
     ipcRenderer.on('menu:refresh', () => callback('refresh'));
+    ipcRenderer.on('menu:refresh-projects', () => callback('refresh'));
+    ipcRenderer.on('menu:toggle-fullscreen', () => callback('toggle-fullscreen'));
     ipcRenderer.on('menu:kill-port', () => callback('kill-port'));
     ipcRenderer.on('menu:open-folder', () => callback('open-folder'));
     ipcRenderer.on('menu:open-ide', () => callback('open-ide'));
