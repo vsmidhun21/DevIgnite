@@ -19,7 +19,7 @@ Open IDE · Launch terminal · Run startup commands · Track time · Open browse
 <br/>
 
 <!-- Suggested: assets/screenshot-main.png — full app screenshot (dark mode) at ~1280×800 -->
-<video height="600" controls autoplay muted loop><source src="assets/App.mp4" type="video/mp4"></video>
+![DevIgnite Screenshot](assets/screenshot-main.png)
 ![DevIgnite Screenshot](assets/screenshot-charts.png)
 
 </div>
