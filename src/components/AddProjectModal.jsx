@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronLeft, FolderOpen, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, FolderOpen, Check, Plus, Trash2, Globe, AppWindow } from 'lucide-react';
 import { DEFAULT_TAGS, getTagColor } from '../../shared/utils/tagUtils.js';
 
 const api = window.devignite;
@@ -51,7 +51,7 @@ const DEFAULTS = {
 const STEPS_CONFIG = [
   { id:'project',  label:'Project',      icon:'1' },
   { id:'command',  label:'Command',      icon:'2' },
-  { id:'ide',      label:'IDE',          icon:'3' },
+  { id:'ide',      label:'IDE & Apps',   icon:'3' },
   { id:'options',  label:'Options',      icon:'4' },
 ];
 
@@ -74,7 +74,7 @@ export default function AddProjectModal({ project, onSave, onClose }) {
   const [form, setForm] = useState({
     name:'', path:'', type:'Custom',
     command:'', ide:'VS Code', ide_id:'vscode', ide_path:'',
-    port:'', url:'', env_file:'', active_env:'dev',
+    port:'', url:'', urls:[], externalApps:[], env_file:'', active_env:'dev',
     open_terminal:true, open_browser:true, install_deps:false, tag:'',
   });
   const [steps,        setSteps]        = useState([]);
@@ -104,6 +104,8 @@ export default function AddProjectModal({ project, onSave, onClose }) {
       ide_path:     project.ide_path     || '',
       port:         project.port         || '',
       url:          project.url          || '',
+      urls:         (() => { try { const u = JSON.parse(project.urls || '[]'); return u.length ? u : (project.url ? [project.url] : []); } catch { return project.url ? [project.url] : []; } })(),
+      externalApps: (() => { try { return JSON.parse(project.externalApps || '[]'); } catch { return []; } })(),
       env_file:     project.env_file     || '',
       active_env:   project.active_env   || 'dev',
       open_terminal: project.open_terminal !== 0,
@@ -167,6 +169,18 @@ export default function AddProjectModal({ project, onSave, onClose }) {
   const mvDn       = (i)       => { if(i===steps.length-1) return; const s=[...steps]; [s[i+1],s[i]]=[s[i],s[i+1]]; setSteps(s); };
   const setStep2   = (i,k,v)   => setSteps(prev=>prev.map((s,x)=>x===i?{...s,[k]:v}:s));
 
+  const addUrl = () => setForm(p => ({ ...p, urls: [...p.urls, ''] }));
+  const remUrl = (i) => setForm(p => ({ ...p, urls: p.urls.filter((_, x) => x !== i) }));
+  const updateUrl = (i, v) => setForm(p => ({ ...p, urls: p.urls.map((u, x) => x === i ? v : u) }));
+
+  const addApp = () => setForm(p => ({ ...p, externalApps: [...p.externalApps, ''] }));
+  const remApp = (i) => setForm(p => ({ ...p, externalApps: p.externalApps.filter((_, x) => x !== i) }));
+  const updateApp = (i, v) => setForm(p => ({ ...p, externalApps: p.externalApps.map((a, x) => x === i ? v : a) }));
+  const browseApp = async (i) => {
+    const p = await api.pickFile();
+    if (p) updateApp(i, p);
+  };
+
   const validateStep = (idx) => {
     const e = {};
     if (idx===0) {
@@ -175,7 +189,12 @@ export default function AddProjectModal({ project, onSave, onClose }) {
     }
     if (idx===1) {
       if (!useSteps && !form.command.trim()) e.command = 'Required';
-      if (form.url) { try { new URL(form.url); } catch { e.url='Invalid URL'; } }
+      if (form.urls.length) { 
+        for (const u of form.urls) {
+          if (!u.trim()) continue;
+          try { new URL(u); } catch { e.urls='Invalid URL(s)'; break; } 
+        }
+      }
     }
     setErrs(e);
     return Object.keys(e).length===0;
@@ -195,6 +214,8 @@ export default function AddProjectModal({ project, onSave, onClose }) {
       install_deps:  form.install_deps  ? 1 : 0,
       ide_path:      form.ide_path||null,
       tag:           form.tag?.trim() || null,
+      urls:          form.urls.filter(u => u.trim()),
+      externalApps:  form.externalApps.filter(a => a.trim()),
     });
   };
 
@@ -251,8 +272,21 @@ export default function AddProjectModal({ project, onSave, onClose }) {
               <Field label="Run command" error={errs.command}>
                 <input value={form.command} onChange={set('command')} placeholder="python manage.py runserver" />
               </Field>
-              <Field label="Browser URL" error={errs.url}>
-                <input value={form.url} onChange={set('url')} placeholder="http://localhost:8000" />
+              <Field label="Browser URLs" error={errs.urls}>
+                <div className="multi-input-container">
+                  {form.urls.map((u, i) => (
+                    <div key={i} className="multi-input-row">
+                      <div className="input-with-icon">
+                        <Globe size={13} className="input-icon-left" />
+                        <input value={u} onChange={e => updateUrl(i, e.target.value)} placeholder="http://localhost:8000" />
+                      </div>
+                      <button className="icon-btn danger" onClick={() => remUrl(i)}><Trash2 size={13} /></button>
+                    </div>
+                  ))}
+                  <button className="btn small add-btn" onClick={addUrl}>
+                    <Plus size={13} /> Add URL
+                  </button>
+                </div>
               </Field>
               {envFiles.length>0 && (
                 <Field label=".env file">
@@ -304,35 +338,59 @@ export default function AddProjectModal({ project, onSave, onClose }) {
           )}
 
           {step===2 && (
-            <>
-              <div className="section-label" style={{marginBottom:8}}>Detected IDEs</div>
-              {availIDEs.length===0 ? (
-                <div className="steps-empty">No IDEs detected. Use custom path.</div>
-              ) : (
-                <div className="ide-list-container">
-                  {availIDEs.map(ide=>(
-                    <div key={ide.id}
-                      className={`ide-item ${form.ide===ide.name?'selected':''}`}
-                      onClick={()=>setForm(prev=>({...prev,ide:ide.name,ide_id:ide.id,ide_path:''}))}>
-                      <div className="ide-item-info">
-                        <div className="ide-item-name">{ide.name}</div>
-                        <div className="ide-item-path">{ide.execPath}</div>
+            <div className="apps-ide-step">
+              <div className="step-section">
+                <div className="section-label">Default IDE</div>
+                {availIDEs.length===0 ? (
+                  <div className="steps-empty">No IDEs detected. Use custom path.</div>
+                ) : (
+                  <div className="ide-list-container">
+                    {availIDEs.map(ide=>(
+                      <div key={ide.id}
+                        className={`ide-item ${form.ide===ide.name?'selected':''}`}
+                        onClick={()=>setForm(prev=>({...prev,ide:ide.name,ide_id:ide.id,ide_path:''}))}>
+                        <div className="ide-item-info">
+                          <div className="ide-item-name">{ide.name}</div>
+                          <div className="ide-item-path">{ide.execPath}</div>
+                        </div>
+                        <div className="ide-item-check">
+                          {form.ide===ide.name && <Check size={11} strokeWidth={3} />}
+                        </div>
                       </div>
-                      <div className="ide-item-check">
-                        {form.ide===ide.name && <Check size={11} strokeWidth={3} />}
+                    ))}
+                  </div>
+                )}
+                <div className="ide-divider">— custom —</div>
+                <Field label="Custom path">
+                  <div className="path-row">
+                    <input value={form.ide_path} onChange={set('ide_path')} placeholder="C:\editor.exe" className="path-input" />
+                    <button className="btn browse-btn" onClick={browseIDE}>Browse</button>
+                  </div>
+                </Field>
+              </div>
+
+              <div className="step-divider-h"></div>
+
+              <div className="step-section">
+                <div className="section-label">External Apps</div>
+                <div className="multi-input-container apps-list">
+                  {form.externalApps.map((app, i) => (
+                    <div key={i} className="multi-input-row app-row">
+                      <div className="input-with-icon flex1">
+                        <AppWindow size={13} className="input-icon-left" />
+                        <input value={app} onChange={e => updateApp(i, e.target.value)} placeholder="App name or path" />
                       </div>
+                      <button className="btn small browse-btn-inline" onClick={() => browseApp(i)}>Browse</button>
+                      <button className="icon-btn danger" onClick={() => remApp(i)}><Trash2 size={13} /></button>
                     </div>
                   ))}
+                  <button className="btn small add-btn" onClick={addApp}>
+                    <Plus size={13} /> Add External App
+                  </button>
+                  <div className="help-text">Apps like Postman, Docker, or secondary IDEs.</div>
                 </div>
-              )}
-              <div className="ide-divider">— custom —</div>
-              <Field label="Custom path">
-                <div className="path-row">
-                  <input value={form.ide_path} onChange={set('ide_path')} placeholder="C:\editor.exe" className="path-input" />
-                  <button className="btn browse-btn" onClick={browseIDE}>Browse</button>
-                </div>
-              </Field>
-            </>
+              </div>
+            </div>
           )}
 
           {step===3 && (

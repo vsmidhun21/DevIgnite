@@ -6,7 +6,7 @@ import CodeHealthModal from './CodeHealthModal';
 
 const ProductivityPanel = lazy(() => import('./ProductivityPanel'));
 const NotesTodosPanel = lazy(() => import('./NotesTodosPanel'));
-import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw, ShieldAlert } from 'lucide-react';
+import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Plus, Cpu, Hash, Activity, Command, Boxes, Layers, Settings, Braces, TerminalSquare, Archive, ArchiveRestore, RefreshCw, ShieldAlert, AppWindow } from 'lucide-react';
 
 const api = window.devignite;
 
@@ -169,8 +169,8 @@ const ProjectDetail = forwardRef(function ProjectDetail({
         <button className="action-btn" onClick={() => api.work.openTerminal(project.id)} title="Terminal">
           <Terminal size={11} strokeWidth={2} /> Terminal
         </button>
-        {project.url && (
-          <button className="action-btn" onClick={() => api.work.openBrowser(project.id)} title={project.url}>
+        {(project.url || (project.urls && JSON.parse(project.urls || '[]').length > 0)) && (
+          <button className="action-btn" onClick={() => api.work.openBrowser(project.id)} title="Open configured URLs">
             <Globe size={11} strokeWidth={2} /> Browser
           </button>
         )}
@@ -191,17 +191,28 @@ const ProjectDetail = forwardRef(function ProjectDetail({
                 <MetaCard icon={<Hash size={12} />} label="Port" value={project.port ? `:${project.port}` : '-'} />
                 <MetaCard icon={<Code2 size={12} />} label="IDE" value={project.ide} />
                 <MetaCard icon={<Cpu size={12} />} label="PID" value={project.pid ?? '-'} />
-                {project.url && (
-                  <div className="meta-card clickable" onClick={() => api.work.openBrowser(project.id)} title="Open in Browser" style={{ cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
-                      <Globe size={12} />
-                      <div className="meta-label" style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>URL</div>
+                {(() => {
+                  const urls = (() => { try { const u = JSON.parse(project.urls || '[]'); return u.length ? u : (project.url ? [project.url] : []); } catch { return project.url ? [project.url] : []; } })();
+                  if (!urls.length) return null;
+                  return (
+                    <div className="meta-card clickable" onClick={() => api.work.openBrowser(project.id)} title={urls.join(', ')} style={{ cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
+                        <Globe size={12} />
+                        <div className="meta-label" style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>URL{urls.length > 1 ? 's' : ''}</div>
+                      </div>
+                      <div className="meta-value" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {urls[0]}{urls.length > 1 ? ` (+${urls.length - 1})` : ''}
+                      </div>
                     </div>
-                    <div className="meta-value" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {project.url}
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
+                {(() => {
+                  const apps = (() => { try { return JSON.parse(project.externalApps || '[]'); } catch { return []; } })();
+                  if (!apps.length) return null;
+                  return (
+                    <MetaCard icon={<AppWindow size={12} />} label="Apps" value={`${apps.length} App${apps.length > 1 ? 's' : ''}`} />
+                  );
+                })()}
               </div>
             </div>
 

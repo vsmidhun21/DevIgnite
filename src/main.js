@@ -99,6 +99,8 @@ function buildExportPayload() {
       open_browser: !!project.open_browser,
       install_deps: !!project.install_deps,
       tag: project.tag ?? null,
+      urls: parseJsonValue(project.urls, []),
+      externalApps: parseJsonValue(project.externalApps, []),
       environments: configManager.listEnvs(project.id).map((env) => ({
         name: env.name,
         command: env.command ?? null,
@@ -247,6 +249,8 @@ function importProjectPayload(payload) {
         open_browser: project.open_browser ?? true,
         install_deps: !!project.install_deps,
         tag: project.tag ?? null,
+        urls: Array.isArray(project.urls) ? project.urls : parseJsonValue(project.urls, []),
+        externalApps: Array.isArray(project.externalApps) ? project.externalApps : parseJsonValue(project.externalApps, []),
       });
 
       const projectId = Number(created.id);
