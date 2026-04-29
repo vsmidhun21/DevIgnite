@@ -3324,6 +3324,20 @@ body {
 
 .input-with-icon input {
   padding-left: 32px !important;
+  width: 100%;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-family: var(--font);
+  border: 1px solid var(--b1);
+  border-radius: 6px;
+  background: var(--bg1);
+  color: var(--t0);
+  outline: none;
+  transition: border-color .15s;
+}
+
+.input-with-icon input:focus {
+  border-color: var(--accent);
 }
 
 .add-btn {
@@ -3362,12 +3376,6 @@ body {
 
 .app-row {
   margin-bottom: 4px;
-}
-
-.browse-btn-inline {
-  flex-shrink: 0;
-  padding: 5px 10px;
-  font-size: 11px;
 }
 
 .help-text {

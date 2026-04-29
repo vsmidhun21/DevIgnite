@@ -375,12 +375,12 @@ export default function AddProjectModal({ project, onSave, onClose }) {
                 <div className="section-label">External Apps</div>
                 <div className="multi-input-container apps-list">
                   {form.externalApps.map((app, i) => (
-                    <div key={i} className="multi-input-row app-row">
+                    <div key={i} className="path-row app-row">
                       <div className="input-with-icon flex1">
                         <AppWindow size={13} className="input-icon-left" />
-                        <input value={app} onChange={e => updateApp(i, e.target.value)} placeholder="App name or path" />
+                        <input className="path-input" value={app} onChange={e => updateApp(i, e.target.value)} placeholder="App name or path" />
                       </div>
-                      <button className="btn small browse-btn-inline" onClick={() => browseApp(i)}>Browse</button>
+                      <button className="btn browse-btn" onClick={() => browseApp(i)}>Browse</button>
                       <button className="icon-btn danger" onClick={() => remApp(i)}><Trash2 size={13} /></button>
                     </div>
                   ))}
