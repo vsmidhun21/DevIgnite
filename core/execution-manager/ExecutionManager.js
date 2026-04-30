@@ -42,6 +42,7 @@ export class ExecutionManager {
       this.onStatus(project.id, PROJECT_STATUS.STARTING, null);
       this.openIDE(project);
       if (project.open_terminal !== 0) this.openTerminal(cwd, project.id);
+      this.launchExternalApps(project);
     }
 
     const steps = this._buildSteps(project);
@@ -76,9 +77,20 @@ export class ExecutionManager {
     }
 
     // Open browser after server starts
-    if (isPrimary && project.open_browser !== 0 && project.url) {
-      const delay = mainChild ? 3000 : 500;
-      setTimeout(() => this.openBrowser(project.url, project.id), delay);
+    if (isPrimary && project.open_browser !== 0) {
+      const urlsToOpen = [];
+      try {
+        const parsed = JSON.parse(project.urls || '[]');
+        if (Array.isArray(parsed) && parsed.length) urlsToOpen.push(...parsed);
+      } catch {}
+      if (!urlsToOpen.length && project.url) urlsToOpen.push(project.url);
+
+      if (urlsToOpen.length) {
+        const delay = mainChild ? 3000 : 500;
+        urlsToOpen.forEach((u, i) => {
+          setTimeout(() => this.openBrowser(u, project.id), delay + (i * 600));
+        });
+      }
     }
 
     return { ok: true, sessionId, loadedEnvFile: loadedFile };
@@ -188,6 +200,34 @@ export class ExecutionManager {
     });
   }
 
+  // ── LAUNCH EXTERNAL APPS ─────────────────────────────────────────────────
+  launchExternalApps(project) {
+    let apps = [];
+    try {
+      apps = JSON.parse(project.externalApps || '[]');
+    } catch {
+      return;
+    }
+    if (!Array.isArray(apps) || !apps.length) return;
+
+    for (const appPath of apps) {
+      if (!appPath || !appPath.trim()) continue;
+      const cmd = appPath.trim();
+      this.logManager.write(project.id, 'info', `Launching external app: ${cmd}`);
+      try {
+        const child = spawn(cmd, [], {
+          detached: true,
+          stdio: 'ignore',
+          shell: true,
+          windowsHide: false // Usually want to see the app
+        });
+        child.unref();
+      } catch (err) {
+        this.logManager.write(project.id, 'warn', `Failed to launch app "${cmd}": ${err.message}`);
+      }
+    }
+  }
+
   // ── VALIDATE ──────────────────────────────────────────────────────────────
   validate(project) {
     const errors = [];
@@ -197,9 +237,17 @@ export class ExecutionManager {
     if (!project.command && !JSON.parse(project.startup_steps || '[]').length) {
       errors.push({ field: 'command', message: 'No run command or startup steps defined' });
     }
-    if (project.url) {
-      try { new URL(project.url); } catch {
-        errors.push({ field: 'url', message: `Invalid URL: ${project.url}` });
+    
+    const urls = [];
+    try {
+      const parsed = JSON.parse(project.urls || '[]');
+      if (Array.isArray(parsed)) urls.push(...parsed);
+    } catch {}
+    if (!urls.length && project.url) urls.push(project.url);
+
+    for (const u of urls) {
+      try { new URL(u); } catch {
+        errors.push({ field: 'url', message: `Invalid URL: ${u}` });
       }
     }
     return { valid: errors.length === 0, errors };

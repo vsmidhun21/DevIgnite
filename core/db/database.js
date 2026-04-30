@@ -144,6 +144,8 @@ function runMigrations(database) {
   safe(`ALTER TABLE projects ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE projects ADD COLUMN archived INTEGER DEFAULT 0`);
   safe(`ALTER TABLE projects ADD COLUMN tag TEXT`);
+  safe(`ALTER TABLE projects ADD COLUMN urls TEXT DEFAULT '[]'`);
+  safe(`ALTER TABLE projects ADD COLUMN externalApps TEXT DEFAULT '[]'`);
   safe(`ALTER TABLE groups ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
   safe(`ALTER TABLE app_settings ADD COLUMN custom_tags TEXT DEFAULT '[]'`);
