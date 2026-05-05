@@ -846,6 +846,10 @@ ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
 ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
 ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
 
+// ── Tour State ────────────────────────────────────────────────────────────────
+ipcMain.handle('tour:getState', () => settingsManager.getTourState());
+ipcMain.handle('tour:saveState', (_, state) => { settingsManager.saveTourState(state); return { ok: true }; });
+
 // ── Code Health ───────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.CODE_HEALTH_ANALYZE, async (_, { projectId, options }) => {
   return await codeHealthManager.analyze(projectId, options);

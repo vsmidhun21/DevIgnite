@@ -11,7 +11,7 @@ import { GitBranch, Terminal, Globe, Code2, Play, Square, FolderOpen, Trash2, Pl
 const api = window.devignite;
 
 const ProjectDetail = forwardRef(function ProjectDetail({
-  project, onStartWork, onStopWork, onEdit, onDelete, onArchive, onUnarchive, onSetEnv, onReload, onClearLogs
+  project, onStartWork, onStopWork, onEdit, onDelete, onArchive, onUnarchive, onSetEnv, onReload, onClearLogs, onCustomCommandRun
 }, ref) {
   const [envData, setEnvData] = useState({ available: ['dev'], files: [] });
   const [actions, setActions] = useState([]);
@@ -313,7 +313,7 @@ const ProjectDetail = forwardRef(function ProjectDetail({
                           <span style={{ fontSize: '9px', color: 'var(--t2)', fontFamily: 'var(--font)' }}>$ {a.command}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => api.actions.run(a.id)} style={{ background: 'transparent', border: '1px solid var(--ignite)', color: 'var(--ignite)', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Run</button>
+                          <button onClick={() => { api.actions.run(a.id); onCustomCommandRun?.(); }} style={{ background: 'transparent', border: '1px solid var(--ignite)', color: 'var(--ignite)', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Run</button>
                           <button onClick={() => deleteAction(a.id)} style={{ background: 'transparent', color: 'var(--t2)', border: 'none', cursor: 'pointer', opacity: 0.6 }}><Trash2 size={12} /></button>
                         </div>
                       </div>
