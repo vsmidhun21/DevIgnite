@@ -118,7 +118,11 @@ export default function Tour({ isActive, projects, selectedId, onComplete }) {
 
   // ── Load state from SQLite on mount ───────────────────────────────────────
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      setDone(false);
+      setLoaded(false);
+      return;
+    }
     api.tour.getState().then(state => {
       if (state.tourCompleted || state.skipped) {
         setDone(true);

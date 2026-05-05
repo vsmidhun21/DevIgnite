@@ -385,7 +385,13 @@ export default function App() {
     setReady,
     clearProjectLogs,
     setShowSettings,
-    onShowGuide: () => setIsTourActive(true)
+    onShowGuide: async () => {
+      // Reset tour state in SQLite
+      await api.tour.saveState({ tourCompleted: false, currentStep: 0, skipped: false });
+      // Force reactivation
+      setIsTourActive(false);
+      setTimeout(() => setIsTourActive(true), 50);
+    }
   });
 
   const saveSettings = async (newSettings) => {
