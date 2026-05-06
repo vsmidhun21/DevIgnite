@@ -99,6 +99,8 @@ function buildExportPayload() {
       open_browser: !!project.open_browser,
       install_deps: !!project.install_deps,
       tag: project.tag ?? null,
+      urls: parseJsonValue(project.urls, []),
+      externalApps: parseJsonValue(project.externalApps, []),
       environments: configManager.listEnvs(project.id).map((env) => ({
         name: env.name,
         command: env.command ?? null,
@@ -247,6 +249,8 @@ function importProjectPayload(payload) {
         open_browser: project.open_browser ?? true,
         install_deps: !!project.install_deps,
         tag: project.tag ?? null,
+        urls: Array.isArray(project.urls) ? project.urls : parseJsonValue(project.urls, []),
+        externalApps: Array.isArray(project.externalApps) ? project.externalApps : parseJsonValue(project.externalApps, []),
       });
 
       const projectId = Number(created.id);
@@ -841,6 +845,10 @@ ipcMain.handle('settings:save', (_, settings) => settingsManager.updateSettings(
 ipcMain.handle('tags:getCustom', () => settingsManager.getCustomTags());
 ipcMain.handle('tags:add', (_, tag) => { settingsManager.addCustomTag(tag); return { ok: true }; });
 ipcMain.handle('tags:remove', (_, tag) => { settingsManager.removeCustomTag(tag); return { ok: true }; });
+
+// ── Tour State ────────────────────────────────────────────────────────────────
+ipcMain.handle('tour:getState', () => settingsManager.getTourState());
+ipcMain.handle('tour:saveState', (_, state) => { settingsManager.saveTourState(state); return { ok: true }; });
 
 // ── Code Health ───────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.CODE_HEALTH_ANALYZE, async (_, { projectId, options }) => {

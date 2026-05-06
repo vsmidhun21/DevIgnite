@@ -10,11 +10,11 @@ export class ProjectManager {
         INSERT INTO projects
           (name, path, type, archived, command, ide, ide_path, port, url,
            active_env, env_file, startup_steps,
-           open_terminal, open_browser, install_deps, tag)
+           open_terminal, open_browser, install_deps, tag, urls, externalApps)
         VALUES
           (@name, @path, @type, @archived, @command, @ide, @ide_path, @port, @url,
            @active_env, @env_file, @startup_steps,
-           @open_terminal, @open_browser, @install_deps, @tag)
+           @open_terminal, @open_browser, @install_deps, @tag, @urls, @externalApps)
       `),
       update: this.db.prepare(`
         UPDATE projects SET
@@ -24,6 +24,7 @@ export class ProjectManager {
           startup_steps=@startup_steps,
           open_terminal=@open_terminal, open_browser=@open_browser,
           install_deps=@install_deps, tag=@tag,
+          urls=@urls, externalApps=@externalApps,
           updated_at=datetime('now')
         WHERE id=@id
       `),
@@ -92,6 +93,8 @@ export class ProjectManager {
       install_deps:  data.install_deps  != null ? (data.install_deps  ? 1 : 0) : 0,
       isPinned:      data.isPinned != null ? (data.isPinned ? 1 : 0) : 0,
       tag:           data.tag ?? null,
+      urls:          Array.isArray(data.urls) ? JSON.stringify(data.urls) : (data.urls ?? '[]'),
+      externalApps:  Array.isArray(data.externalApps) ? JSON.stringify(data.externalApps) : (data.externalApps ?? '[]'),
     };
   }
 
@@ -107,6 +110,8 @@ export class ProjectManager {
       install_deps: row.install_deps,
       isPinned: row.isPinned === 1 || row.isPinned === true,
       tag: row.tag || null,
+      urls: row.urls,
+      externalApps: row.externalApps,
     };
   }
 }

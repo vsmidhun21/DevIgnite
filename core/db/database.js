@@ -144,6 +144,8 @@ function runMigrations(database) {
   safe(`ALTER TABLE projects ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE projects ADD COLUMN archived INTEGER DEFAULT 0`);
   safe(`ALTER TABLE projects ADD COLUMN tag TEXT`);
+  safe(`ALTER TABLE projects ADD COLUMN urls TEXT DEFAULT '[]'`);
+  safe(`ALTER TABLE projects ADD COLUMN externalApps TEXT DEFAULT '[]'`);
   safe(`ALTER TABLE groups ADD COLUMN isPinned INTEGER DEFAULT 0`);
   safe(`ALTER TABLE sessions ADD COLUMN date TEXT`);
   safe(`ALTER TABLE app_settings ADD COLUMN custom_tags TEXT DEFAULT '[]'`);
@@ -153,6 +155,9 @@ function runMigrations(database) {
   safe(`ALTER TABLE app_settings ADD COLUMN daily_briefing_enabled INTEGER DEFAULT 1`);
   safe(`ALTER TABLE app_settings ADD COLUMN theme TEXT DEFAULT 'system'`);
   safe(`CREATE TABLE IF NOT EXISTS project_briefings (project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE, last_shown_date TEXT NOT NULL)`);
+  safe(`ALTER TABLE app_settings ADD COLUMN tour_completed INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE app_settings ADD COLUMN tour_step INTEGER DEFAULT 0`);
+  safe(`ALTER TABLE app_settings ADD COLUMN tour_skipped INTEGER DEFAULT 0`);
 }
 
 export function closeDb() {

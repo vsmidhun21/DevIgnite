@@ -1882,7 +1882,7 @@ body {
 }
 
 .modal-wide {
-  width: 560px
+  width: 620px
 }
 
 .modal-header {
@@ -3292,4 +3292,95 @@ body {
   --ignite: #ff6b35;
   --ignite-dark: #ff8555;
   --ignite-bg: #2a1200;
+}
+
+/* ── Multi-input UI (URLs, Apps) ────────────────────────────────────────────── */
+.multi-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.multi-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-icon {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon-left {
+  position: absolute;
+  left: 10px;
+  color: var(--t2);
+  pointer-events: none;
+}
+
+.input-with-icon input {
+  padding-left: 32px !important;
+  width: 100%;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-family: var(--font);
+  border: 1px solid var(--b1);
+  border-radius: 6px;
+  background: var(--bg1);
+  color: var(--t0);
+  outline: none;
+  transition: border-color .15s;
+}
+
+.input-with-icon input:focus {
+  border-color: var(--accent);
+}
+
+.add-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+  gap: 6px;
+  padding: 6px 12px;
+}
+
+.apps-ide-step {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-right: 4px;
+}
+
+.step-section {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.step-divider-h {
+  height: 1px;
+  background: var(--b1);
+  margin: 4px 0;
+  width: 100%;
+}
+
+.apps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-row {
+  margin-bottom: 4px;
+}
+
+.help-text {
+  font-size: 10px;
+  color: var(--t2);
+  margin-top: 8px;
+  font-style: italic;
 }

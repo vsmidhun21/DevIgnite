@@ -146,6 +146,10 @@ contextBridge.exposeInMainWorld('devignite', {
   codeHealth: {
     analyze: (projectId, options) => ipcRenderer.invoke(CH.CODE_HEALTH_ANALYZE, { projectId, options }),
   },
+  tour: {
+    getState:  ()      => ipcRenderer.invoke('tour:getState'),
+    saveState: (state) => ipcRenderer.invoke('tour:saveState', state),
+  },
   on: {
     status:        (cb) => on(CH.STATUS_UPDATE, cb),
     tick:          (cb) => on(CH.TICK_UPDATE, cb),

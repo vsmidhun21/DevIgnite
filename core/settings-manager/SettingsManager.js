@@ -36,6 +36,14 @@ export class SettingsManager {
             theme = ?,
             updated_at = datetime('now')
         WHERE id = 1
+      `),
+      saveTourState: this.db.prepare(`
+        UPDATE app_settings
+        SET tour_completed = ?,
+            tour_step      = ?,
+            tour_skipped   = ?,
+            updated_at     = datetime('now')
+        WHERE id = 1
       `)
     };
   }
@@ -55,7 +63,7 @@ export class SettingsManager {
   updateSponsorshipStatus(status) {
     return this._stmts.updateStatus.run(status);
   }
-  
+
   updateSettings(settings) {
     return this._stmts.updateSettings.run(
       JSON.stringify(settings.shortcuts),
@@ -83,6 +91,23 @@ export class SettingsManager {
       const stmt = this.db.prepare(`UPDATE app_settings SET custom_tags = ? WHERE id = 1`);
       stmt.run(JSON.stringify(tags));
     }
+  }
+
+  getTourState() {
+    const row = this._stmts.get.get();
+    return {
+      tourCompleted: !!row?.tour_completed,
+      currentStep: row?.tour_step ?? 0,
+      skipped: !!row?.tour_skipped,
+    };
+  }
+
+  saveTourState({ tourCompleted, currentStep, skipped }) {
+    return this._stmts.saveTourState.run(
+      tourCompleted ? 1 : 0,
+      currentStep ?? 0,
+      skipped ? 1 : 0
+    );
   }
 
   removeCustomTag(tag) {
