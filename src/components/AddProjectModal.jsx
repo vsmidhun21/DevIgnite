@@ -224,7 +224,7 @@ export default function AddProjectModal({ project, onSave, onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal modal-wide">
+      <div className="modal modal-wide" data-tour="add-project-modal">
 
         <div className="modal-header">
           <h3>{isEdit ? 'Edit project' : 'Add project'}</h3>

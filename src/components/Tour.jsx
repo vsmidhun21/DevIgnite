@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Check } from 'lucide-react';
 
@@ -29,7 +29,7 @@ const TOUR_STEPS = [
     message: 'Click any project in the sidebar to open its detail view.',
     position: 'right',
     waitEvent: 'tour:projectSelected',
-    condition: ({ projects }) => projects.length > 0,
+    condition: ({ projects, selectedId }) => projects.length > 0 && !selectedId,
   },
   {
     id: 'start-work',
@@ -100,6 +100,8 @@ export default function Tour({ isActive, projects, selectedId, onComplete }) {
   const [visible,   setVisible]     = useState(false);
   const [loaded,    setLoaded]      = useState(false); // DB state has been fetched
   const [done,      setDone]        = useState(false); // tour fully completed/skipped
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pausedMsg,   setPausedMsg]   = useState(null);
   const pollRef  = useRef(null);
   const stepRef  = useRef(stepIndex);
   stepRef.current = stepIndex;
@@ -109,7 +111,32 @@ export default function Tour({ isActive, projects, selectedId, onComplete }) {
 
   // Build the filtered, ordered list of active steps
   const activeSteps = TOUR_STEPS.filter(s => !s.condition || s.condition(ctx));
-  const currentStep = activeSteps[stepIndex] ?? null;
+  const activeStep  = activeSteps[stepIndex] ?? null;
+
+  // ── Context-aware step overrides ──────────────────────────────────────────
+  const currentStep = useMemo(() => {
+    if (!activeStep) return null;
+    
+    // Scenario A: Transition into modal
+    if (activeStep.id === 'add-project' && isModalOpen) {
+      return {
+        ...activeStep,
+        target: '[data-tour="add-project-modal"]',
+        message: 'Fill project details to continue',
+        position: 'right',
+      };
+    }
+    
+    // Scenario B: Tour paused/cancelled
+    if (activeStep.id === 'help-menu' && pausedMsg) {
+      return {
+        ...activeStep,
+        message: pausedMsg,
+      };
+    }
+    
+    return activeStep;
+  }, [activeStep, isModalOpen, pausedMsg]);
 
   // ── Persist state to SQLite ────────────────────────────────────────────────
   const persist = useCallback(async (patch) => {
@@ -121,6 +148,8 @@ export default function Tour({ isActive, projects, selectedId, onComplete }) {
     if (!isActive) {
       setDone(false);
       setLoaded(false);
+      setIsModalOpen(false);
+      setPausedMsg(null);
       return;
     }
     api.tour.getState().then(state => {
@@ -134,6 +163,29 @@ export default function Tour({ isActive, projects, selectedId, onComplete }) {
       setStepIndex(restored);
       setLoaded(true);
     }).catch(() => setLoaded(true));
+
+    // Listen for modal transitions
+    const onOpened = () => {
+      setVisible(false); // Briefly hide to transition smoothly
+      setIsModalOpen(true);
+    };
+    const onClosed = () => {
+      setIsModalOpen(false);
+      // If we are still on the add-project step, it means the modal was closed without project creation
+      if (stepRef.current === 0 && activeSteps[0]?.id === 'add-project') {
+        setPausedMsg("You can restart the guide anytime from Help");
+        const helpIndex = activeSteps.findIndex(s => s.id === 'help-menu');
+        if (helpIndex !== -1) setStepIndex(helpIndex);
+        persist({ tourCompleted: false, skipped: true });
+      }
+    };
+
+    window.addEventListener('tour:modalOpened', onOpened);
+    window.addEventListener('tour:modalClosed', onClosed);
+    return () => {
+      window.removeEventListener('tour:modalOpened', onOpened);
+      window.removeEventListener('tour:modalClosed', onClosed);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive]);
 

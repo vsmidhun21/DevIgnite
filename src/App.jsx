@@ -427,7 +427,11 @@ export default function App() {
             onTogglePinProject={togglePinProject}
             onTogglePinGroup={togglePinGroup}
             onUnarchiveProject={unarchiveProject}
-            onAdd={() => { setEditProject(null); setShowProjModal(true); }}
+            onAdd={() => {
+              setEditProject(null);
+              setShowProjModal(true);
+              window.dispatchEvent(new Event('tour:modalOpened'));
+            }}
             onAddGroup={() => { setEditGroup(null); setShowGrpModal(true); }}
             onOpenSettings={() => setShowSettings(true)}
           />
@@ -477,7 +481,10 @@ export default function App() {
                 </div>
                 <p>Select a project or workspace</p>
                 <div style={{display:'flex',gap:8,marginTop:8}}>
-                  <button className="btn primary" onClick={()=>setShowProjModal(true)}>Add project</button>
+                  <button className="btn primary" onClick={()=>{
+                    setShowProjModal(true);
+                    window.dispatchEvent(new Event('tour:modalOpened'));
+                  }}>Add project</button>
                   <button className="btn" onClick={()=>setShowGrpModal(true)}>New workspace</button>
                 </div>
               </div>
@@ -488,7 +495,15 @@ export default function App() {
         <MemoStatusBar message={statusMsg} runningCount={runCount} projects={activeProjects} />
 
         {showProjModal && (
-          <AddProjectModal project={editProject} onSave={saveProject} onClose={()=>{setShowProjModal(false);setEditProject(null);}} />
+          <AddProjectModal
+            project={editProject}
+            onSave={saveProject}
+            onClose={()=>{
+              setShowProjModal(false);
+              setEditProject(null);
+              window.dispatchEvent(new Event('tour:modalClosed'));
+            }}
+          />
         )}
         {showGrpModal && (
           <GroupModal group={editGroup} projects={activeProjects} onSave={saveGroup} onClose={()=>{setShowGrpModal(false);setEditGroup(null);}} />
