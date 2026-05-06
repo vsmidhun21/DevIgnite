@@ -90,6 +90,8 @@ export default function AddProjectModal({ project, onSave, onClose }) {
   useEffect(() => {
     api.ide.list().then(setAvailIDEs).catch(() => {});
     api.tags.getCustom().then(setCustomTags).catch(() => {});
+    window.dispatchEvent(new Event('tour:modalOpened'));
+    return () => window.dispatchEvent(new Event('tour:modalClosed'));
   }, []);
 
   useEffect(() => {
@@ -224,7 +226,7 @@ export default function AddProjectModal({ project, onSave, onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal modal-wide">
+      <div className="modal modal-wide" data-tour="add-project-modal">
 
         <div className="modal-header">
           <h3>{isEdit ? 'Edit project' : 'Add project'}</h3>

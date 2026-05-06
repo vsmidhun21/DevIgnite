@@ -94,12 +94,11 @@ export default function App() {
   }, [appSettings.theme]);
 
   useEffect(() => {
-    loadAll().then(() => {
+    loadAll().then((pList) => {
       setReady(true);
-      const hasSeenTour = localStorage.getItem('hasSeenTour');
-      if (!hasSeenTour) {
-        setTimeout(() => setIsTourActive(true), 1500);
-      }
+      // Tour activation is driven by SQLite state inside Tour.jsx itself.
+      // We start it for ALL new launches; Tour.jsx decides whether to show.
+      setIsTourActive(true);
     });
 
     const u1 = api.on.status(({ projectId, status, pid }) => {
@@ -206,7 +205,13 @@ export default function App() {
 
   const saveProject = async (data) => {
     if (editProject) await api.projects.update(editProject.id, data);
-    else { const {id} = await api.projects.add(data); setSelectedId(id); setSelectedGrpId(null); }
+    else {
+      const { id } = await api.projects.add(data);
+      setSelectedId(id);
+      setSelectedGrpId(null);
+      // Tour Step 1 → 2: project was just created
+      window.dispatchEvent(new Event('tour:projectCreated'));
+    }
     await loadAll();
     setShowProjModal(false); setEditProject(null);
   };
@@ -380,7 +385,13 @@ export default function App() {
     setReady,
     clearProjectLogs,
     setShowSettings,
-    onShowGuide: () => setIsTourActive(true)
+    onShowGuide: async () => {
+      // Reset tour state in SQLite
+      await api.tour.saveState({ tourCompleted: false, currentStep: 0, skipped: false });
+      // Force reactivation
+      setIsTourActive(false);
+      setTimeout(() => setIsTourActive(true), 50);
+    }
   });
 
   const saveSettings = async (newSettings) => {
@@ -406,12 +417,21 @@ export default function App() {
             selectedId={selectedId}
             selectedGroupId={selectedGrpId}
             searchInputRef={sidebarSearchRef}
-            onSelect={id => { setSelectedId(id); setSelectedGrpId(null); }}
+            onSelect={id => {
+              setSelectedId(id);
+              setSelectedGrpId(null);
+              // Tour Step 2 → 3: a project was selected
+              window.dispatchEvent(new Event('tour:projectSelected'));
+            }}
             onSelectGroup={id => { setSelectedGrpId(id); setSelectedId(null); }}
             onTogglePinProject={togglePinProject}
             onTogglePinGroup={togglePinGroup}
             onUnarchiveProject={unarchiveProject}
-            onAdd={() => { setEditProject(null); setShowProjModal(true); }}
+            onAdd={() => {
+              setEditProject(null);
+              setShowProjModal(true);
+              window.dispatchEvent(new Event('tour:modalOpened'));
+            }}
             onAddGroup={() => { setEditGroup(null); setShowGrpModal(true); }}
             onOpenSettings={() => setShowSettings(true)}
           />
@@ -433,7 +453,11 @@ export default function App() {
               <MemoProjectDetail
                 ref={projectDetailRef}
                 project={sel}
-                onStartWork={() => startWork(sel.id)}
+                onStartWork={() => {
+                  startWork(sel.id);
+                  // Tour Step 3 → 4: start-work clicked
+                  window.dispatchEvent(new Event('tour:startWorkClicked'));
+                }}
                 onStopWork={() => stopWork(sel.id)}
                 onEdit={() => { setEditProject(sel); setShowProjModal(true); }}
                 onDelete={() => delProject(sel.id)}
@@ -442,6 +466,10 @@ export default function App() {
                 onSetEnv={env => setEnv(sel.id, env)}
                 onReload={loadAll}
                 onClearLogs={() => clearProjectLogs(sel.id)}
+                onCustomCommandRun={() => {
+                  // Tour Step 4 → 5: a custom command was run
+                  window.dispatchEvent(new Event('tour:customCommandClicked'));
+                }}
               />
             ) : (
               <div className="empty-state">
@@ -453,7 +481,10 @@ export default function App() {
                 </div>
                 <p>Select a project or workspace</p>
                 <div style={{display:'flex',gap:8,marginTop:8}}>
-                  <button className="btn primary" onClick={()=>setShowProjModal(true)}>Add project</button>
+                  <button className="btn primary" onClick={()=>{
+                    setShowProjModal(true);
+                    window.dispatchEvent(new Event('tour:modalOpened'));
+                  }}>Add project</button>
                   <button className="btn" onClick={()=>setShowGrpModal(true)}>New workspace</button>
                 </div>
               </div>
@@ -464,7 +495,15 @@ export default function App() {
         <MemoStatusBar message={statusMsg} runningCount={runCount} projects={activeProjects} />
 
         {showProjModal && (
-          <AddProjectModal project={editProject} onSave={saveProject} onClose={()=>{setShowProjModal(false);setEditProject(null);}} />
+          <AddProjectModal
+            project={editProject}
+            onSave={saveProject}
+            onClose={()=>{
+              setShowProjModal(false);
+              setEditProject(null);
+              window.dispatchEvent(new Event('tour:modalClosed'));
+            }}
+          />
         )}
         {showGrpModal && (
           <GroupModal group={editGroup} projects={activeProjects} onSave={saveGroup} onClose={()=>{setShowGrpModal(false);setEditGroup(null);}} />
@@ -492,7 +531,12 @@ export default function App() {
             onClose={() => setShowSettings(false)} 
           />
         )}
-        <Tour isActive={isTourActive} onComplete={() => setIsTourActive(false)} />
+        <Tour
+          isActive={isTourActive}
+          projects={activeProjects}
+          selectedId={selectedId}
+          onComplete={() => setIsTourActive(false)}
+        />
         {showBriefing && (
           <DailyBriefingModal 
             project={showBriefing} 
