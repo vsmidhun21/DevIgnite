@@ -90,6 +90,8 @@ export default function AddProjectModal({ project, onSave, onClose }) {
   useEffect(() => {
     api.ide.list().then(setAvailIDEs).catch(() => {});
     api.tags.getCustom().then(setCustomTags).catch(() => {});
+    window.dispatchEvent(new Event('tour:modalOpened'));
+    return () => window.dispatchEvent(new Event('tour:modalClosed'));
   }, []);
 
   useEffect(() => {

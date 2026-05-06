@@ -5,18 +5,11 @@ import { X, Check } from 'lucide-react';
 const api = window.devignite;
 
 // ── Step definitions ──────────────────────────────────────────────────────────
-// Each step declares:
-//   target   : CSS selector to highlight
-//   title    : tooltip heading
-//   message  : tooltip body
-//   position : 'right' | 'bottom' | 'top' | 'left'
-//   waitEvent: the event name that advances to the next step (set in App.jsx)
-//   condition: fn → bool — if false, skip this step automatically
 const TOUR_STEPS = [
   {
     id: 'add-project',
     target: '[data-tour="add-project"]',
-    title: 'Welcome to DevIgnite 🚀',
+    title: 'Welcome to DevIgnite',
     message: 'Start by adding your first project. Click the + button to open the project wizard.',
     position: 'right',
     waitEvent: 'tour:projectCreated',
@@ -52,201 +45,58 @@ const TOUR_STEPS = [
   {
     id: 'help-menu',
     target: '[data-tour="help-menu"]',
-    title: 'Need Help? 🎉',
+    title: 'Need Help?',
     message: "You're all set! Access help, updates, and support anytime from the Help menu.",
     position: 'bottom',
-    waitEvent: null, // final step — completed by Finish button
+    waitEvent: null, 
     condition: () => true,
   },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function getTooltipStyle(pos, coords) {
   const gap = 14;
   switch (pos) {
     case 'right':
-      return {
-        top: coords.top + coords.height / 2,
-        left: coords.left + coords.width + gap,
-        transform: 'translateY(-50%)',
-      };
+      return { top: coords.top + coords.height / 2, left: coords.left + coords.width + gap, transform: 'translateY(-50%)' };
     case 'bottom':
-      return {
-        top: coords.top + coords.height + gap,
-        left: coords.left + coords.width / 2,
-        transform: 'translateX(-50%)',
-      };
+      return { top: coords.top + coords.height + gap, left: coords.left + coords.width / 2, transform: 'translateX(-50%)' };
     case 'top':
-      return {
-        top: coords.top - gap,
-        left: coords.left + coords.width / 2,
-        transform: 'translate(-50%, -100%)',
-      };
+      return { top: coords.top - gap, left: coords.left + coords.width / 2, transform: 'translate(-50%, -100%)' };
     case 'left':
-      return {
-        top: coords.top + coords.height / 2,
-        left: coords.left - gap,
-        transform: 'translate(-100%, -50%)',
-      };
+      return { top: coords.top + coords.height / 2, left: coords.left - gap, transform: 'translate(-100%, -50%)' };
     default:
       return { top: coords.top, left: coords.left };
   }
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export default function Tour({ isActive, projects, selectedId, onComplete }) {
   const [stepIndex, setStepIndex]   = useState(0);
   const [coords,    setCoords]      = useState({ top: 0, left: 0, width: 0, height: 0 });
   const [visible,   setVisible]     = useState(false);
-  const [loaded,    setLoaded]      = useState(false); // DB state has been fetched
-  const [done,      setDone]        = useState(false); // tour fully completed/skipped
+  const [loaded,    setLoaded]      = useState(false);
+  const [done,      setDone]        = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [pausedMsg,   setPausedMsg]   = useState(null);
+  const [helpOverride, setHelpOverride] = useState(false);
+  
   const pollRef  = useRef(null);
   const stepRef  = useRef(stepIndex);
   stepRef.current = stepIndex;
 
-  // ── Compute which steps are applicable given current app state ─────────────
-  const ctx = { projects, selectedId };
+  const ctx = useMemo(() => ({ projects, selectedId }), [projects, selectedId]);
 
-  // Build the filtered, ordered list of active steps
-  const activeSteps = TOUR_STEPS.filter(s => !s.condition || s.condition(ctx));
-  const activeStep  = activeSteps[stepIndex] ?? null;
-
-  // ── Context-aware step overrides ──────────────────────────────────────────
-  const currentStep = useMemo(() => {
-    if (!activeStep) return null;
-    
-    // Scenario A: Transition into modal
-    if (activeStep.id === 'add-project' && isModalOpen) {
-      return {
-        ...activeStep,
-        target: '[data-tour="add-project-modal"]',
-        message: 'Fill project details to continue',
-        position: 'right',
-      };
-    }
-    
-    // Scenario B: Tour paused/cancelled
-    if (activeStep.id === 'help-menu' && pausedMsg) {
-      return {
-        ...activeStep,
-        message: pausedMsg,
-      };
-    }
-    
-    return activeStep;
-  }, [activeStep, isModalOpen, pausedMsg]);
-
-  // ── Persist state to SQLite ────────────────────────────────────────────────
   const persist = useCallback(async (patch) => {
     await api.tour.saveState(patch);
   }, []);
 
-  // ── Load state from SQLite on mount ───────────────────────────────────────
-  useEffect(() => {
-    if (!isActive) {
-      setDone(false);
-      setLoaded(false);
-      setIsModalOpen(false);
-      setPausedMsg(null);
-      return;
-    }
-    api.tour.getState().then(state => {
-      if (state.tourCompleted || state.skipped) {
-        setDone(true);
-        onComplete?.();
-        return;
-      }
-      // Restore step, clamped to valid range
-      const restored = Math.min(state.currentStep ?? 0, TOUR_STEPS.length - 1);
-      setStepIndex(restored);
-      setLoaded(true);
-    }).catch(() => setLoaded(true));
-
-    // Listen for modal transitions
-    const onOpened = () => {
-      setVisible(false); // Briefly hide to transition smoothly
-      setIsModalOpen(true);
-    };
-    const onClosed = () => {
-      setIsModalOpen(false);
-      // If we are still on the add-project step, it means the modal was closed without project creation
-      if (stepRef.current === 0 && activeSteps[0]?.id === 'add-project') {
-        setPausedMsg("You can restart the guide anytime from Help");
-        const helpIndex = activeSteps.findIndex(s => s.id === 'help-menu');
-        if (helpIndex !== -1) setStepIndex(helpIndex);
-        persist({ tourCompleted: false, skipped: true });
-      }
-    };
-
-    window.addEventListener('tour:modalOpened', onOpened);
-    window.addEventListener('tour:modalClosed', onClosed);
-    return () => {
-      window.removeEventListener('tour:modalOpened', onOpened);
-      window.removeEventListener('tour:modalClosed', onClosed);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
-
-  // ── Position the highlight box around target element ──────────────────────
-  const updatePosition = useCallback(() => {
-    if (!currentStep) { setVisible(false); return; }
-    const el = document.querySelector(currentStep.target);
-    if (el) {
-      const r = el.getBoundingClientRect();
-      setCoords({ top: r.top, left: r.left, width: r.width, height: r.height });
-      setVisible(true);
-    } else {
-      setVisible(false);
-    }
-  }, [currentStep]);
-
-  // Poll + event listeners for position updates
-  useEffect(() => {
-    if (!isActive || !loaded || done) return;
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
-    pollRef.current = setInterval(updatePosition, 400);
-    return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
-      clearInterval(pollRef.current);
-    };
-  }, [isActive, loaded, done, updatePosition]);
-
-  // ── Auto-skip step if condition not met (e.g. user already has projects) ──
-  useEffect(() => {
-    if (!isActive || !loaded || done || !currentStep) return;
-    if (currentStep.condition && !currentStep.condition(ctx)) {
-      advanceStep();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, loaded, done, stepIndex, projects, selectedId]);
-
-  // ── Event-driven progression ───────────────────────────────────────────────
-  // App fires custom DOM events; Tour listens and advances
-  useEffect(() => {
-    if (!isActive || !loaded || done || !currentStep?.waitEvent) return;
-
-    const handler = () => advanceStep();
-    window.addEventListener(currentStep.waitEvent, handler);
-    return () => window.removeEventListener(currentStep.waitEvent, handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, loaded, done, currentStep?.waitEvent, stepIndex]);
-
-  // ── Navigation helpers ─────────────────────────────────────────────────────
   const advanceStep = useCallback(() => {
     const next = stepRef.current + 1;
-    if (next >= activeSteps.length) {
+    if (next >= TOUR_STEPS.length) {
       completeTour();
     } else {
       setStepIndex(next);
       persist({ tourCompleted: false, currentStep: next, skipped: false });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSteps.length]);
+  }, [persist]);
 
   const completeTour = useCallback(async () => {
     setVisible(false);
@@ -262,94 +112,135 @@ export default function Tour({ isActive, projects, selectedId, onComplete }) {
     onComplete?.();
   }, [persist, onComplete]);
 
-  // ── Render guard ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isActive) {
+      setDone(false);
+      setLoaded(false);
+      return;
+    }
+    api.tour.getState().then(state => {
+      if (state.tourCompleted || state.skipped) {
+        setDone(true);
+        onComplete?.();
+        return;
+      }
+      setStepIndex(Math.min(state.currentStep ?? 0, TOUR_STEPS.length - 1));
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, [isActive, onComplete]);
+
+  useEffect(() => {
+    const onOpen = () => { setVisible(false); setIsModalOpen(true); };
+    const onClose = () => {
+      setIsModalOpen(false);
+      if (stepRef.current === 0) {
+        setHelpOverride(true);
+        const helpIdx = TOUR_STEPS.findIndex(s => s.id === 'help-menu');
+        setStepIndex(helpIdx);
+        persist({ tourCompleted: false, currentStep: helpIdx, skipped: true });
+      }
+    };
+    window.addEventListener('tour:modalOpened', onOpen);
+    window.addEventListener('tour:modalClosed', onClose);
+    return () => {
+      window.removeEventListener('tour:modalOpened', onOpen);
+      window.removeEventListener('tour:modalClosed', onClose);
+    };
+  }, [persist]);
+
+  const rawStep = TOUR_STEPS[stepIndex] ?? null;
+  const currentStep = useMemo(() => {
+    if (!rawStep) return null;
+    if (rawStep.id === 'add-project' && isModalOpen) {
+      return {
+        ...rawStep,
+        target: '[data-tour="add-project-modal"]',
+        title: 'Project Wizard',
+        message: 'Fill project details to continue',
+        position: 'right',
+      };
+    }
+    if (rawStep.id === 'help-menu' && helpOverride) {
+      return {
+        ...rawStep,
+        message: 'You can restart the guide anytime from Help',
+      };
+    }
+    return rawStep;
+  }, [rawStep, isModalOpen, helpOverride]);
+
+  const updatePosition = useCallback(() => {
+    if (!currentStep) { setVisible(false); return; }
+    const el = document.querySelector(currentStep.target);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setCoords({ top: r.top, left: r.left, width: r.width, height: r.height });
+      setVisible(true);
+    } else {
+      setVisible(false);
+    }
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (!isActive || !loaded || done) return;
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    pollRef.current = setInterval(updatePosition, 400);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      clearInterval(pollRef.current);
+    };
+  }, [isActive, loaded, done, updatePosition]);
+
+  useEffect(() => {
+    if (!isActive || !loaded || done || !currentStep) return;
+    if (currentStep.condition && !currentStep.condition(ctx)) {
+      advanceStep();
+    }
+  }, [isActive, loaded, done, stepIndex, currentStep, ctx, advanceStep]);
+
+  useEffect(() => {
+    if (!isActive || !loaded || done || !currentStep?.waitEvent) return;
+    const handler = () => advanceStep();
+    window.addEventListener(currentStep.waitEvent, handler);
+    return () => window.removeEventListener(currentStep.waitEvent, handler);
+  }, [isActive, loaded, done, currentStep?.waitEvent, advanceStep]);
+
   if (!isActive || !loaded || done || !visible || !currentStep) return null;
 
-  const isLast = stepIndex === activeSteps.length - 1;
-
   return ReactDOM.createPortal(
-    <div className="tour-container" aria-label="Onboarding tour">
-      {/* Backdrop cutout — dim everything, spotlight the target */}
-      <svg
-        className="tour-backdrop"
-        style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 9998 }}
-      >
+    <div className="tour-container">
+      <svg className="tour-backdrop" style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 9998 }}>
         <defs>
           <mask id="tour-mask">
             <rect width="100%" height="100%" fill="white" />
-            <rect
-              x={coords.left - 6}
-              y={coords.top - 6}
-              width={coords.width + 12}
-              height={coords.height + 12}
-              rx="6"
-              fill="black"
-            />
+            <rect x={coords.left - 6} y={coords.top - 6} width={coords.width + 12} height={coords.height + 12} rx="6" fill="black" />
           </mask>
         </defs>
         <rect width="100%" height="100%" fill="rgba(0,0,0,0.45)" mask="url(#tour-mask)" />
       </svg>
-
-      {/* Highlight ring */}
-      <div
-        className="tour-highlight"
-        style={{
-          top:    coords.top  - 6,
-          left:   coords.left - 6,
-          width:  coords.width  + 12,
-          height: coords.height + 12,
-        }}
-      />
-
-      {/* Tooltip */}
-      <div
-        className={`tour-tooltip tour-pos-${currentStep.position}`}
-        style={getTooltipStyle(currentStep.position, coords)}
-        role="dialog"
-        aria-modal="false"
-        aria-label={currentStep.title}
-      >
+      <div className="tour-highlight" style={{ top: coords.top - 6, left: coords.left - 6, width: coords.width + 12, height: coords.height + 12 }} />
+      <div className={`tour-tooltip tour-pos-${currentStep.position}`} style={getTooltipStyle(currentStep.position, coords)}>
         <div className="tour-content">
           <div className="tour-header">
             <h3>{currentStep.title}</h3>
-            <button
-              className="tour-close"
-              onClick={skipTour}
-              title="Skip tour"
-              aria-label="Skip tour"
-            >
-              <X size={13} />
-            </button>
+            <button className="tour-close" onClick={skipTour}><X size={13} /></button>
           </div>
-
           <p>{currentStep.message}</p>
-
           <div className="tour-footer">
-            {/* Step dots */}
             <div className="tour-dots">
-              {activeSteps.map((_, i) => (
-                <span
-                  key={i}
-                  className={`tour-dot ${i === stepIndex ? 'active' : i < stepIndex ? 'done' : ''}`}
-                />
+              {TOUR_STEPS.map((_, i) => (
+                <span key={i} className={`tour-dot ${i === stepIndex ? 'active' : i < stepIndex ? 'done' : ''}`} />
               ))}
             </div>
-
             <div className="tour-btns">
-              <button className="tour-btn ghost" onClick={skipTour}>
-                Skip
-              </button>
-              {/* Only show manual Next/Finish when no waitEvent (final step) */}
-              {isLast && (
-                <button className="tour-btn primary" onClick={completeTour}>
-                  Finish <Check size={13} />
-                </button>
-              )}
-              {/* For non-final steps: show a "Next" that bypasses the event gate */}
-              {!isLast && (
-                <button className="tour-btn secondary" onClick={advanceStep}>
-                  Next →
-                </button>
+              <button className="tour-btn ghost" onClick={skipTour}>Skip</button>
+              {stepIndex === TOUR_STEPS.length - 1 ? (
+                <button className="tour-btn primary" onClick={completeTour}>Finish <Check size={13} /></button>
+              ) : (
+                <button className="tour-btn secondary" onClick={advanceStep}>Next →</button>
               )}
             </div>
           </div>
