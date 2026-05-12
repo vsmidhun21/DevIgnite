@@ -729,7 +729,23 @@ ipcMain.handle(IPC_CHANNELS.RUN_ONLY, async (_, projectId) => {
 });
 ipcMain.handle(IPC_CHANNELS.OPEN_IDE, (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openIDE(p); return { ok: !!p }; });
 ipcMain.handle(IPC_CHANNELS.OPEN_TERMINAL, (_, id) => { const p = projectManager.getById(id); if (p) executionManager.openTerminal(p.path, p.id); return { ok: !!p }; });
-ipcMain.handle(IPC_CHANNELS.OPEN_BROWSER, (_, id) => { const p = projectManager.getById(id); if (p && p.url) executionManager.openBrowser(p.url, p.id); return { ok: !!(p?.url) }; });
+ipcMain.handle(IPC_CHANNELS.OPEN_BROWSER, (_, id) => {
+  const p = projectManager.getById(id);
+  if (!p) return { ok: false };
+  const urls = [];
+  try {
+    const parsed = JSON.parse(p.urls || '[]');
+    if (Array.isArray(parsed)) urls.push(...parsed);
+  } catch {}
+  if (!urls.length && p.url) urls.push(p.url);
+
+  if (urls.length) {
+    urls.forEach((u, i) => {
+      setTimeout(() => executionManager.openBrowser(u, p.id), i * 600);
+    });
+  }
+  return { ok: urls.length > 0 };
+});
 
 // ── Groups ────────────────────────────────────────────────────────────────────
 ipcMain.handle(IPC_CHANNELS.GROUP_LIST, () => groupManager.listAll());
