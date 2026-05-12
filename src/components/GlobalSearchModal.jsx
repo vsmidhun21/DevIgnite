@@ -151,14 +151,15 @@ export default function GlobalSearchModal({
         }
       });
 
-      if (project.url) {
+      const urls = (() => { try { const u = JSON.parse(project.urls || '[]'); return u.length ? u : (project.url ? [project.url] : []); } catch { return project.url ? [project.url] : []; } })();
+      if (urls.length > 0) {
         baseItems.push({
           id: `command-browser-${project.id}`,
           icon: <Globe size={14} />,
           label: `Open Browser for ${project.name}`,
-          desc: project.url,
+          desc: urls[0] + (urls.length > 1 ? ` (+${urls.length - 1})` : ''),
           typeLabel: 'Command',
-          searchText: [project.name, project.url, 'browser url open command'],
+          searchText: [project.name, ...urls, 'browser url open command'],
           action: () => {
             api.work.openBrowser(project.id);
             onClose();

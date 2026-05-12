@@ -169,7 +169,10 @@ const ProjectDetail = forwardRef(function ProjectDetail({
         <button className="action-btn" onClick={() => api.work.openTerminal(project.id)} title="Terminal">
           <Terminal size={11} strokeWidth={2} /> Terminal
         </button>
-        {(project.url || (project.urls && JSON.parse(project.urls || '[]').length > 0)) && (
+        {(() => {
+          const urls = (() => { try { const u = JSON.parse(project.urls || '[]'); return u.length ? u : (project.url ? [project.url] : []); } catch { return project.url ? [project.url] : []; } })();
+          return urls.length > 0;
+        })() && (
           <button className="action-btn" onClick={() => api.work.openBrowser(project.id)} title="Open configured URLs">
             <Globe size={11} strokeWidth={2} /> Browser
           </button>
